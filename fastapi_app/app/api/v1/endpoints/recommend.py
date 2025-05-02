@@ -8,15 +8,18 @@ FastAPI를 사용하여 HTTP 요청을 처리하고 추천 서비스와 연동�
     - recommend: 추천 요청을 처리하는 엔드포인트 함수
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from app.services.recommender import RecommenderService
 from app.schemas.recommend_schema import RecommendRequest, RecommendResponse, Recommendation
+from app.api.deps import get_recommender
 
 router = APIRouter()
-recommender_service = RecommenderService()
 
 @router.post("/recommend", response_model=RecommendResponse)
-async def recommend(request: RecommendRequest):
+async def recommend(
+    request: RecommendRequest,
+    recommender: RecommenderService = Depends(get_recommender)
+):
     """
     추천 요청을 처리하는 엔드포인트
     
@@ -27,6 +30,7 @@ async def recommend(request: RecommendRequest):
     
     Args:
         request (RecommendRequest): 사용자의 추천 요청 데이터
+        recommender (RecommenderService): 의존성으로 주입된 추천 서비스
         
     Returns:
         RecommendResponse: 추천 결과 데이터
@@ -35,7 +39,7 @@ async def recommend(request: RecommendRequest):
         HTTPException: 추천 생성 과정에서 오류가 발생한 경우
     """
     try:
-        recommendations = await recommender_service.get_recommendation(
+        recommendations = await recommender.get_recommendation(
             user_input=request.text
         )
         
