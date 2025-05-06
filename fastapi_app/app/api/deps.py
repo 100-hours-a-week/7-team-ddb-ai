@@ -5,24 +5,23 @@ API 엔드포인트에서 사용되는 의존성 모듈
 주요 구성요소:
     - get_llm: LangChain LLM 의존성
     - get_recommender: 추천 서비스 의존성
-    - get_vector_store: 벡터 저장소 의존성
     # TODO: 아래 의존성들은 추후 구현 예정
+    # - get_vector_store: 벡터 저장소 의존성
     # - get_logger: 로깅 의존성
     # - get_cache: 캐시 의존성
 """
 
 from fastapi import Depends, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
-from typing import Generator
 
 from app.core.config import settings
 from app.services.recommender import RecommenderService
-from app.services.vector_store import VectorStore
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator
 # from app.logging.config import setup_logger
 # from app.cache.redis import get_redis_client
+# from app.services.vector_store import VectorStore
 
 # LLM 의존성
 def get_llm() -> ChatGoogleGenerativeAI:
@@ -71,31 +70,31 @@ def get_recommender(
             detail=f"추천 서비스 초기화 실패: {str(e)}"
         )
 
-# 벡터 저장소 의존성
-def get_vector_store() -> Generator[VectorStore, None, None]:
-    """
-    벡터 저장소 의존성
-    
-    Yields:
-        VectorStore: 벡터 저장소 인스턴스
-        
-    Raises:
-        HTTPException: 벡터 저장소 초기화 실패 시
-    """
-    store = None
-    try:
-        store = VectorStore()
-        yield store
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"벡터 저장소 초기화 실패: {str(e)}"
-        )
-    finally:
-        if store:
-            store.close()
-
 # TODO: 추후 구현 예정
+# # 벡터 저장소 의존성
+# def get_vector_store() -> Generator[VectorStore, None, None]:
+#     """
+#     벡터 저장소 의존성
+#     
+#     Yields:
+#         VectorStore: 벡터 저장소 인스턴스
+#         
+#     Raises:
+#         HTTPException: 벡터 저장소 초기화 실패 시
+#     """
+#     store = None
+#     try:
+#         store = VectorStore()
+#         yield store
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"벡터 저장소 초기화 실패: {str(e)}"
+#         )
+#     finally:
+#         if store:
+#             store.close()
+
 # # 로깅 의존성
 # def get_logger() -> logging.Logger:
 #     """
