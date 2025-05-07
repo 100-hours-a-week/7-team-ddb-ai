@@ -9,6 +9,14 @@
 """
 
 import os
+
+# chroma 사용 시 python-sqlite3 버전 문제 해결
+# 내장 모듈 sqlite3 대신 pysqlite3 사용
+import sys
+import pysqlite3
+sys.modules["sqlite3"] = pysqlite3
+import sqlite3
+
 from typing import List, Dict, Any, Optional
 from chromadb import Client, Settings
 from chromadb.utils import embedding_functions
