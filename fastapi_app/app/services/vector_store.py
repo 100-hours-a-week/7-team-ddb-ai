@@ -155,8 +155,6 @@ class VectorStore:
             # 임베딩 모델의 리소스 정리
             del self._embedding_model
             self._embedding_model = None
-        
         # Chroma DB 클라이언트 정리
         if hasattr(self, 'client'):
-            self.client.persist()
             del self.client
