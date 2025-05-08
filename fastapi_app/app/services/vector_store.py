@@ -67,48 +67,44 @@ class VectorStore:
             )
         return self._embedding_function
     
-    def add_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def add_documents(self, documents: List[Dict[str, Any]], collection_name: str = None) -> None:
         """
-        문서 추가
-        
+        문서 추가 (컬렉션 지정 가능)
         Args:
             documents (List[Dict[str, Any]]): 추가할 문서 리스트
-                각 문서는 다음 키를 포함해야 함:
-                - id: 문서 ID
-                - text: 문서 텍스트
-                - metadata: 문서 메타데이터 (선택사항)
+            collection_name (str): 추가할 컬렉션명 (기본값: 설정값)
         """
         ids = [doc["id"] for doc in documents]
         texts = [doc["text"] for doc in documents]
         metadatas = [doc.get("metadata", {}) for doc in documents]
-        
-        self.collection.add(
+        col = self.collection if collection_name is None else self.client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=self._get_embedding_function()
+        )
+        col.add(
             ids=ids,
             documents=texts,
             metadatas=metadatas
         )
     
-    def search(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    def search(self, query: str, n_results: int = 5, collection_name: str = None) -> List[Dict[str, Any]]:
         """
-        유사도 검색 수행
-        
+        유사도 검색 수행 (컬렉션 지정 가능)
         Args:
             query (str): 검색 쿼리
             n_results (int): 반환할 결과 수
-            
+            collection_name (str): 검색할 컬렉션명 (기본값: 설정값)
         Returns:
             List[Dict[str, Any]]: 검색 결과 리스트
-                각 결과는 다음 키를 포함:
-                - id: 문서 ID
-                - text: 문서 텍스트
-                - metadata: 문서 메타데이터
-                - distance: 유사도 점수
         """
-        results = self.collection.query(
+        col = self.collection if collection_name is None else self.client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=self._get_embedding_function()
+        )
+        results = col.query(
             query_texts=[query],
             n_results=n_results
         )
-        
         return [
             {
                 "id": id,

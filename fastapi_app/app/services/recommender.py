@@ -12,6 +12,8 @@ from typing import List, Dict
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from app.services.vector_store import VectorStore
+import json
 
 class RecommenderService:
     """
@@ -120,31 +122,58 @@ class RecommenderService:
     async def get_recommendation(self, user_input: str) -> List[Dict]:
         """
         사용자 입력에서 키워드를 추출하고 추천 결과를 생성합니다.
-        
-        이 메서드는 다음 단계로 동작합니다:
         1. LangChain을 사용하여 사용자 입력에서 키워드 추출
-        2. 추출된 키워드를 사용하여 벡터 유사도 검색 수행 (TODO)
-        3. 검색 결과를 기반으로 추천 목록 생성
-        
-        Args:
-            user_input (str): 사용자의 입력 텍스트
-            
-        Returns:
-            List[Dict]: 추천 결과 목록. 각 항목은 id와 similarity_score를 포함
-            
-        Raises:
-            Exception: 추천 생성 과정에서 오류가 발생한 경우
+        2. 카테고리별로 컬렉션명을 매핑하여 해당 컬렉션에서만 검색
+        3. 검색 결과를 통합하여 추천 목록 생성
         """
         try:
             # LangChain을 사용하여 키워드 추출
             keywords = await self.chain.arun(user_input=user_input)
-            
-            # TODO: 추출된 키워드를 사용하여 벡터 유사도 검색 수행
-            # 임시로 하드코딩된 응답 반환
-            return [
-                {"id": 1, "similarity_score": 0.95},
-                {"id": 21, "similarity_score": 0.95},
-                {"id": 32, "similarity_score": 0.95}
-            ]
+
+            # 키워드 문자열을 파싱하여 dict로 변환 (예시 출력 포맷에 맞게)
+            try:
+                if '사용자 키워드:' in keywords:
+                    keywords_json = keywords.split('사용자 키워드:')[1].strip()
+                else:
+                    keywords_json = keywords.strip()
+                start = keywords_json.find('{')
+                end = keywords_json.rfind('}') + 1
+                keywords_dict = json.loads(keywords_json[start:end])
+            except Exception:
+                keywords_dict = {"음식/제품": [], "분위기/공간": [], "서비스/직원": [], "가격/가성비": [], "접근성/편의시설": [], "방문 목적": []}
+
+            # 카테고리명 → 컬렉션명 매핑
+            category_to_collection = {
+                "음식/제품": "food_product",
+                "분위기/공간": "ambience_space",
+                "서비스/직원": "service_staff",
+                "가격/가성비": "price_value",
+                "접근성/편의시설": "accessibility",
+                "방문 목적": "visit_purpose"
+            }
+
+            store = VectorStore()
+            all_results = []
+            seen_ids = set()
+            try:
+                for category, keywords in keywords_dict.items():
+                    if not keywords:
+                        continue
+                    collection_name = category_to_collection.get(category)
+                    if not collection_name:
+                        continue
+                    query = ", ".join(keywords)
+                    results = store.search(query=query, n_results=5, collection_name=collection_name)
+                    for r in results:
+                        if r["id"] not in seen_ids:
+                            all_results.append({
+                                "id": r["id"],
+                                "similarity_score": 1.0 - r["distance"]
+                            })
+                            seen_ids.add(r["id"])
+            finally:
+                store.close()
+
+            return all_results
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")
