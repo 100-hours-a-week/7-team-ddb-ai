@@ -14,7 +14,7 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(recommend_router, prefix="/api/v1", tags=["recommendations"])
+app.include_router(recommend_router, prefix="/api", tags=["recommendations"])
 
 @app.get("/")
 async def root():
