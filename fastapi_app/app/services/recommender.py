@@ -8,10 +8,14 @@ LangChain을 사용하여 사용자 입력을 처리하고 추천을 생성합�
     - RecommenderService: 추천 서비스 클래스
 """
 
+import json
+
 from typing import List, Dict
+from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from app.services.vector_store import PlaceStore
+from app.schemas.recommend_schema import RecommendResponse
+from app.services.recommend_engine import RecommendationEngine
 
 class RecommenderService:
     """
@@ -22,29 +26,34 @@ class RecommenderService:
     
     Attributes:
         llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
-        chain (LLMChain): 키워드 추출을 위한 LangChain 체인
+        chain: 키워드 추출을 위한 LangChain 체인
+        recommendation_engine (RecommendationEngine): 추천 엔진
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(
+        self,
+        llm: ChatGoogleGenerativeAI,
+        place_store: PlaceStore
+    ):
         """
         RecommenderService 초기화
         
         Args:
             llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
+            place_store (PlaceStore): 장소 벡터 저장소 인스턴스
         """
         self.llm = llm
         self.chain = self._create_chain()
+        self.recommendation_engine = RecommendationEngine(place_store)
     
-    def _create_chain(self) -> LLMChain:
+    def _create_chain(self):
         """
         키워드 추출을 위한 LangChain 체인 생성
         
         Returns:
-            LLMChain: 생성된 LangChain 체인
+            RunnablePassthrough: 생성된 LangChain 체인
         """
-        prompt = PromptTemplate(
-            input_variables=["user_input"],
-            template="""
+        prompt = ChatPromptTemplate.from_template("""
             당신은 장소 검색 키워드 추출 AI입니다.
 
             아래에 제시된 사용자의 요청에서 사용자가 원하는 장소의 특징을 잘 나타내는 키워드를 추출하세요.
@@ -109,42 +118,43 @@ class RecommenderService:
             "접근성/편의시설": [],
             "방문 목적": []
             }}
-            """
-        )
+            """)
         
-        return LLMChain(
-            llm=self.llm,
-            prompt=prompt
-        )
+        return prompt | self.llm
     
-    async def get_recommendation(self, user_input: str) -> List[Dict]:
+    async def get_recommendation(self, user_input: str) -> RecommendResponse:
         """
         사용자 입력에서 키워드를 추출하고 추천 결과를 생성합니다.
         
         이 메서드는 다음 단계로 동작합니다:
         1. LangChain을 사용하여 사용자 입력에서 키워드 추출
-        2. 추출된 키워드를 사용하여 벡터 유사도 검색 수행 (TODO)
-        3. 검색 결과를 기반으로 추천 목록 생성
+        2. 추출된 키워드를 기반으로 장소 추천
         
         Args:
             user_input (str): 사용자의 입력 텍스트
             
         Returns:
-            List[Dict]: 추천 결과 목록. 각 항목은 id와 similarity_score를 포함
+            RecommendResponse: 추천 결과
             
         Raises:
             Exception: 추천 생성 과정에서 오류가 발생한 경우
         """
         try:
-            # LangChain을 사용하여 키워드 추출
-            keywords = await self.chain.arun(user_input=user_input)
+            # 1. 키워드 추출
+            response = await self.chain.ainvoke({"user_input": user_input})
+            keywords_str = response.content
             
-            # TODO: 추출된 키워드를 사용하여 벡터 유사도 검색 수행
-            # 임시로 하드코딩된 응답 반환
-            return [
-                {"id": 1, "similarity_score": 0.95},
-                {"id": 21, "similarity_score": 0.95},
-                {"id": 32, "similarity_score": 0.95}
-            ]
+            # JSON 문자열에서 키워드 딕셔너리 추출
+            start_idx = keywords_str.find("{")
+            end_idx = keywords_str.rfind("}") + 1
+            if start_idx == -1 or end_idx == 0:
+                raise ValueError("키워드 추출 실패: JSON 형식이 올바르지 않습니다.")
+            
+            keywords_json = keywords_str[start_idx:end_idx]
+            keywords = json.loads(keywords_json)
+            print(keywords)
+            # 2. 추천 생성
+            return self.recommendation_engine.get_recommendations(keywords)
+            
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")

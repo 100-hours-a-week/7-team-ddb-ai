@@ -1,166 +1,183 @@
 """
-벡터 저장소 서비스 모듈
+장소 벡터 저장소 모듈
 
-이 모듈은 Chroma DB를 사용하여 벡터 저장소를 관리합니다.
-문서의 임베딩을 생성하고 저장하며, 유사도 검색을 수행합니다.
-
+이 모듈은 ChromaDB를 사용하여 장소 정보를 벡터 형태로 저장하고 검색하는 기능을 제공합니다.
 주요 구성요소:
-    - VectorStore: 벡터 저장소 관리 클래스
+    - PlaceStore: 장소 벡터 저장소 클래스
 """
 
-import os
-
-# chroma 사용 시 python-sqlite3 버전 문제 해결
-# 내장 모듈 sqlite3 대신 pysqlite3 사용
 import sys
 import pysqlite3
 sys.modules["sqlite3"] = pysqlite3
 import sqlite3
 
-from typing import List, Dict, Any, Optional
-from chromadb import Client, Settings
-from chromadb.utils import embedding_functions
+from typing import Dict, List, Any
+import os
+import chromadb
+import numpy as np
+from typing import Optional
 from sentence_transformers import SentenceTransformer
-
+from app.core.constants import CATEGORY_MAP
 from app.core.config import settings
+import logging
 
-class VectorStore:
+logger = logging.getLogger(__name__)
+
+class PlaceStore:
     """
-    벡터 저장소 관리 클래스
+    장소 벡터 저장소 클래스
+    
+    이 클래스는 ChromaDB를 사용하여 장소 정보를 벡터 형태로 저장하고 검색합니다.
     
     Attributes:
-        client (Client): Chroma DB 클라이언트
-        collection: Chroma DB 컬렉션
-        embedding_model: 임베딩 모델
+        client (chromadb.PersistentClient): ChromaDB 클라이언트
+        embedding_model (SentenceTransformer): 문장 임베딩 모델
+        category_map (Dict[str, str]): 카테고리 매핑
     """
     
     def __init__(self):
-        """벡터 저장소 초기화"""
-        # Chroma DB 클라이언트 초기화
-        self.client = Client(Settings(
-            persist_directory=settings.VECTOR_STORE_PATH,
-            is_persistent=True
-        ))
+        """PlaceStore 초기화"""
+        # 벡터 저장소 디렉토리 생성
+        os.makedirs(settings.VECTOR_STORE_PATH, exist_ok=True)
+        print(f"벡터 저장소 경로: {settings.VECTOR_STORE_PATH}")
         
-        # 임베딩 모델 초기화
-        self._embedding_model: Optional[SentenceTransformer] = None
-        self._embedding_function = None
+        # ChromaDB 클라이언트 초기화
+        self.client = chromadb.PersistentClient(path=settings.VECTOR_STORE_PATH)
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+        self.category_map = CATEGORY_MAP
         
-        # 컬렉션 생성 또는 로드
-        self.collection = self.client.get_or_create_collection(
-            name=settings.VECTOR_STORE_COLLECTION_NAME,
-            embedding_function=self._get_embedding_function()
-        )
+        # 컬렉션 초기화
+        self._init_collections()
     
-    @property
-    def embedding_model(self) -> SentenceTransformer:
-        """임베딩 모델 프로퍼티"""
-        if self._embedding_model is None:
-            self._embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
-        return self._embedding_model
-    
-    def _get_embedding_function(self):
-        """임베딩 함수 반환"""
-        if self._embedding_function is None:
-            self._embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=settings.EMBEDDING_MODEL_NAME
-            )
-        return self._embedding_function
-    
-    def add_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def _init_collections(self):
         """
-        문서 추가
+        ChromaDB 컬렉션 초기화
+        
+        각 카테고리별로 컬렉션을 생성하고, 없는 경우 새로 생성합니다.
+        """
+        try:
+            for category in self.category_map.values():
+                try:
+                    # 기존 컬렉션 확인
+                    self.client.get_collection(name=category)
+                    print(f"컬렉션 '{category}' 이미 존재함")
+                except ValueError:
+                    # 컬렉션이 없는 경우 새로 생성
+                    self.client.create_collection(
+                        name=category,
+                        metadata={"description": f"장소 {category} 카테고리 컬렉션"}
+                    )
+                    print(f"컬렉션 '{category}' 생성됨")
+        except Exception as e:
+            raise Exception(f"컬렉션 초기화 실패: {str(e)}")
+    
+    def encode_text(self, text: str) -> List[float]:
+        """
+        텍스트를 벡터로 인코딩
         
         Args:
-            documents (List[Dict[str, Any]]): 추가할 문서 리스트
-                각 문서는 다음 키를 포함해야 함:
-                - id: 문서 ID
-                - text: 문서 텍스트
-                - metadata: 문서 메타데이터 (선택사항)
+            text (str): 인코딩할 텍스트
+            
+        Returns:
+            List[float]: 인코딩된 벡터
         """
-        ids = [doc["id"] for doc in documents]
-        texts = [doc["text"] for doc in documents]
-        metadatas = [doc.get("metadata", {}) for doc in documents]
-        
-        self.collection.add(
-            ids=ids,
-            documents=texts,
-            metadatas=metadatas
-        )
+        return self.embedding_model.encode(text).tolist()
     
-    def search(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    @staticmethod
+    def cosine_similarity(a: List[float], b: List[float]) -> float:
         """
-        유사도 검색 수행
+        두 벡터 간의 코사인 유사도 계산
         
         Args:
-            query (str): 검색 쿼리
+            a (List[float]): 첫 번째 벡터
+            b (List[float]): 두 번째 벡터
+            
+        Returns:
+            float: 코사인 유사도
+        """
+        a = np.array(a)
+        b = np.array(b)
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    
+    def search_places(
+        self,
+        category: str,
+        keyword: str,
+        n_results: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        키워드와 유사한 장소 검색
+        
+        Args:
+            category (str): 검색할 카테고리
+            keyword (str): 검색 키워드
             n_results (int): 반환할 결과 수
             
         Returns:
-            List[Dict[str, Any]]: 검색 결과 리스트
-                각 결과는 다음 키를 포함:
-                - id: 문서 ID
-                - text: 문서 텍스트
-                - metadata: 문서 메타데이터
-                - distance: 유사도 점수
-        """
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results
-        )
-        
-        return [
-            {
-                "id": id,
-                "text": text,
-                "metadata": metadata,
-                "distance": distance
-            }
-            for id, text, metadata, distance in zip(
-                results["ids"][0],
-                results["documents"][0],
-                results["metadatas"][0],
-                results["distances"][0]
-            )
-        ]
-    
-    def delete_documents(self, ids: List[str]) -> None:
-        """
-        문서 삭제
-        
-        Args:
-            ids (List[str]): 삭제할 문서 ID 리스트
-        """
-        self.collection.delete(ids=ids)
-    
-    def get_document(self, id: str) -> Dict[str, Any]:
-        """
-        단일 문서 조회
-        
-        Args:
-            id (str): 문서 ID
+            Dict[str, Any]: 검색 결과
             
-        Returns:
-            Dict[str, Any]: 문서 정보
-        """
-        result = self.collection.get(ids=[id])
-        if not result["ids"]:
-            return None
+        Raises:
+            ValueError: 유효하지 않은 카테고리인 경우
+            Exception: 검색 중 오류 발생 시
+        """            
+        try:
+            logger.info(f"장소 검색 시작: 카테고리={category}, 키워드={keyword}")
+            collection_name = self.category_map[category]
             
-        return {
-            "id": result["ids"][0],
-            "text": result["documents"][0],
-            "metadata": result["metadatas"][0]
-        }
+            try:
+                collection = self.client.get_collection(name=collection_name)
+                logger.info(f"컬렉션 '{collection_name}' 로드 완료")
+            except Exception as e:
+                logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
+                raise
+            
+            if n_results is None:
+                n_results = collection.count()
+
+            try:
+                keyword_vec = self.encode_text(keyword)
+                logger.info("키워드 임베딩 완료")
+            except Exception as e:
+                logger.error(f"키워드 임베딩 실패: {str(e)}")
+                raise
+            
+            try:
+                logger.info(f"벡터 검색 시작: n_results={n_results}")
+                results = collection.query(
+                    query_embeddings=[keyword_vec],
+                    n_results=n_results,
+                    include=["documents", "metadatas", "embeddings"]
+                )
+                logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
+                
+                # 결과 검증
+                if not results or not results.get('metadatas') or not results['metadatas'][0]:
+                    logger.warning("검색 결과가 없습니다.")
+                    return {
+                        'metadatas': [[]],
+                        'embeddings': [[]],
+                        'documents': [[]]
+                    }
+                
+                return results, keyword_vec
+                
+            except Exception as e:
+                logger.error(f"벡터 검색 실패: {str(e)}")
+                raise
+            
+        except KeyError:
+            logger.error(f"유효하지 않은 카테고리: {category}")
+            raise ValueError(f"유효하지 않은 카테고리: {category}")
+        except Exception as e:
+            logger.error(f"장소 검색 중 오류 발생: {str(e)}")
+            raise Exception(f"장소 검색 중 오류 발생: {str(e)}")
     
     def close(self) -> None:
-        """리소스 정리"""
-        if self._embedding_model is not None:
-            # 임베딩 모델의 리소스 정리
-            del self._embedding_model
-            self._embedding_model = None
-        
-        # Chroma DB 클라이언트 정리
-        if hasattr(self, 'client'):
-            self.client.persist()
-            del self.client
+        """
+        벡터 저장소 연결 종료
+        """
+        try:
+            # ChromaDB는 자동으로 변경사항을 저장하므로 별도의 persist 호출이 필요 없음
+            pass
+        except Exception as e:
+            raise Exception(f"벡터 저장소 종료 실패: {str(e)}") 
