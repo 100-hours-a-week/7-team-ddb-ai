@@ -4,7 +4,8 @@ CATEGORY_MAP = {
     "서비스/직원": "service_staff",
     "가격/가성비": "price_value",
     "접근성/편의시설": "accessibility",
-    "방문 목적": "visit_purpose"
+    "방문 목적": "visit_purpose",
+    "장소 카테고리": "place_category"
 }
 
 REVERSE_CATEGORY_MAP = {v: k for k, v in CATEGORY_MAP.items()} 
