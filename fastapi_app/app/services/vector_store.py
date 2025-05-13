@@ -13,13 +13,16 @@ import sqlite3
 
 from typing import Dict, List, Any
 import os
+import logging
 import chromadb
 import numpy as np
+
 from typing import Optional
 from sentence_transformers import SentenceTransformer
-from app.core.constants import CATEGORY_MAP
+
 from app.core.config import settings
-import logging
+from app.core.constants import CATEGORY_MAP
+from app.data.chroma_db import make_chroma_db
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +40,21 @@ class PlaceStore:
     
     def __init__(self):
         """PlaceStore 초기화"""
-        # 벡터 저장소 디렉토리 생성
-        os.makedirs(settings.VECTOR_STORE_PATH, exist_ok=True)
-        print(f"벡터 저장소 경로: {settings.VECTOR_STORE_PATH}")
-        
+        db_path = settings.VECTOR_STORE_PATH
+
+        if not os.path.exists(db_path) or not os.listdir(db_path):
+            print(f"✅ 벡터 저장소 경로가 없거나 비어있음: {db_path}")
+            print("👉 벡터 저장소를 초기화 중...")
+            make_chroma_db()
+            print("✅ 벡터 저장소 초기화 완료")
+        else:
+            print(f"📂 기존 벡터 저장소 사용: {db_path}")
+
         # ChromaDB 클라이언트 초기화
-        self.client = chromadb.PersistentClient(path=settings.VECTOR_STORE_PATH)
+        self.client = chromadb.PersistentClient(path=db_path)
         self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
         self.category_map = CATEGORY_MAP
-        
+
         # 컬렉션 초기화
         self._init_collections()
     
