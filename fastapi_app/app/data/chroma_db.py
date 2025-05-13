@@ -25,11 +25,31 @@ def is_valid_embedding(vec, expected_dim=768):
         return False
     return True
 
+def get_hnsw_metadata_by_size(size: int) -> dict:
+    if size < 333:
+        return {
+            "hnsw:space": "cosine",
+            "hnsw:M": 16,
+            "hnsw:search_ef": 100
+        }
+    elif size < 666:
+        return {
+            "hnsw:space": "cosine",
+            "hnsw:M": 24,
+            "hnsw:search_ef": 150
+        }
+    else:
+        return {
+            "hnsw:space": "cosine",
+            "hnsw:M": 32,
+            "hnsw:search_ef": 200
+        }
+
 def make_chroma_db():
     # 기본 파일 경로
-    csv_path = "app/data/data_for_postgres.csv"
-    jsonl_path = "app/data/place_outputs.jsonl"
-    chroma_path = "app/data/chroma_db_keyword"
+    csv_path = "app/data/place_id_category_data.csv"
+    jsonl_path = "app/data/place_keywords.jsonl"
+    chroma_path = settings.VECTOR_STORE_PATH
 
     # ✅ 임베딩 모델 설정
     embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
@@ -75,7 +95,17 @@ def make_chroma_db():
             if not collection_name:
                 continue
 
-            collection = client.get_or_create_collection(name=collection_name, embedding_function=embedding_func)
+            try:
+                collection = client.get_collection(name=collection_name)
+            except:
+                collection_size = len(keyword_list)
+                metadata = get_hnsw_metadata_by_size(collection_size)
+
+                collection = client.create_collection(
+                    name=collection_name,
+                    embedding_function=embedding_func,
+                    metadata=metadata
+                )
 
             for keyword in keyword_list:
                 try:

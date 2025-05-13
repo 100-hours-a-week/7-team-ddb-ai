@@ -70,13 +70,8 @@ class PlaceStore:
                     # 기존 컬렉션 확인
                     self.client.get_collection(name=category)
                     print(f"컬렉션 '{category}' 이미 존재함")
-                except ValueError:
-                    # 컬렉션이 없는 경우 새로 생성
-                    self.client.create_collection(
-                        name=category,
-                        metadata={"description": f"장소 {category} 카테고리 컬렉션"}
-                    )
-                    print(f"컬렉션 '{category}' 생성됨")
+                except Exception as e:
+                    raise Exception(f"컬렉션 미존재: {str(e)}")
         except Exception as e:
             raise Exception(f"컬렉션 초기화 실패: {str(e)}")
     
