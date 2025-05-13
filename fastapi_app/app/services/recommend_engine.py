@@ -55,6 +55,13 @@ class RecommendationEngine:
             logger.info(f"추천 시작: 키워드={keywords}")
             place_scores = defaultdict(float)
             
+            # 전체 키워드 수를 고려한 카테고리 가중치 설정
+            total_keywords_num = sum(len(v) for v in keywords.values())
+            category_weight = (total_keywords_num//2) + 1
+
+            # 최종 추천 장소 유사도 임계치 설정
+            SIMILARITY_THRESHOLD = category_weight * 0.8
+
             # 각 카테고리별로 처리
             for category, keyword_list in keywords.items():
                 if not keyword_list:  # 키워드가 없는 카테고리는 건너뛰기
@@ -75,20 +82,19 @@ class RecommendationEngine:
                             continue
                             
                         # 유사도 계산 및 점수 누적
-                        for meta, emb in zip(
-                            results["metadatas"][0],
-                            results["embeddings"][0]
-                        ):
-                            if not meta or not emb:
+                        for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
+                            if not meta or not dist:
                                 continue
                             pid = meta.get("place_id")
                             if not pid:
                                 continue
-                            sim = self.place_store.cosine_similarity(
-                                keyword_emb,
-                                emb
-                            )
-                            place_scores[pid] += sim
+                            sim = 1 - dist
+
+                            # 카테고리 가중치 부여
+                            if category == '장소 카테고리':
+                                place_scores[pid] += (sim * category_weight)
+                            else:
+                                place_scores[pid] += sim
                             
                     except Exception as e:
                         logger.error(f"키워드 '{keyword}' 처리 중 오류 발생: {str(e)}")
@@ -113,6 +119,7 @@ class RecommendationEngine:
                     similarity_score=score
                 )
                 for pid, score in sorted_places
+                if score >= SIMILARITY_THRESHOLD
             ]
             
             return RecommendResponse(recommendations=recommendations)

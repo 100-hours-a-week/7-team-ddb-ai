@@ -150,7 +150,7 @@ class PlaceStore:
                 results = collection.query(
                     query_embeddings=[keyword_vec],
                     n_results=n_results,
-                    include=["documents", "metadatas", "embeddings"]
+                    include=["documents", "metadatas", "distances"]
                 )
                 logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
                 
@@ -159,7 +159,7 @@ class PlaceStore:
                     logger.warning("검색 결과가 없습니다.")
                     return {
                         'metadatas': [[]],
-                        'embeddings': [[]],
+                        'distances': [[]],
                         'documents': [[]]
                     }
                 
