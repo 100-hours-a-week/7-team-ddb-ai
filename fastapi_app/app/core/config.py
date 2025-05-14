@@ -35,9 +35,9 @@ class Settings(BaseSettings):
     """
     
     # LLM 설정
-    MODEL_NAME: str = "gemini-1.5-flash"
+    MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini-2.0-flash-lite")
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
-    TEMPERATURE: float = 0.7
+    TEMPERATURE: float = os.getenv("TEMPERATURE", 0.7)
     
     # 벡터 저장소 설정
     VECTOR_STORE_PATH: str = os.getenv("VECTOR_STORE_PATH", "data/vector_store")
