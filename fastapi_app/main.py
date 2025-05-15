@@ -58,7 +58,6 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    logger.info("헬스체크 엔드포인트 호출됨")
     return {
         "status": "healthy",
         "version": "1.0.0",
