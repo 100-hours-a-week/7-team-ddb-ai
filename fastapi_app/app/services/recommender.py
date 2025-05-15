@@ -122,7 +122,6 @@ class RecommenderService:
             
             keywords_json = keywords_str[start_idx:end_idx]
             keywords = json.loads(keywords_json)
-            print(keywords)
             # 2. 추천 생성
             return self.recommendation_engine.get_recommendations(keywords)
             
