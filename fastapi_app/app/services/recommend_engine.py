@@ -65,20 +65,20 @@ class RecommendationEngine:
             # 각 카테고리별로 처리
             for category, keyword_list in keywords.items():
                 if not keyword_list:  # 키워드가 없는 카테고리는 건너뛰기
-                    logger.info(f"카테고리 '{category}'에 키워드가 없어 건너뜁니다.")
+                    # logger.info(f"카테고리 '{category}'에 키워드가 없어 건너뜁니다.")
                     continue
                     
-                logger.info(f"카테고리 '{category}' 처리 중")
+                # logger.info(f"카테고리 '{category}' 처리 중")
                 for keyword in keyword_list:
                     if not keyword:  # 빈 키워드는 건너뛰기
                         continue
                         
-                    logger.info(f"키워드 '{keyword}' 검색 중")
+                    # logger.info(f"키워드 '{keyword}' 검색 중")
                     try:
                         # 장소 검색
                         results, keyword_emb = self.place_store.search_places(category, keyword)
                         if not results or not results.get('metadatas') or not results['metadatas'][0]:
-                            logger.warning(f"키워드 '{keyword}'에 대한 검색 결과가 없습니다.")
+                            # logger.warning(f"키워드 '{keyword}'에 대한 검색 결과가 없습니다.")
                             continue
                             
                         # 유사도 계산 및 점수 누적
@@ -101,7 +101,7 @@ class RecommendationEngine:
                         continue
             
             if not place_scores:
-                logger.warning("추천할 장소가 없습니다.")
+                # logger.warning("추천할 장소가 없습니다.")
                 return RecommendResponse(recommendations=[])
             
             # 최종 추천 장소 반환
@@ -111,7 +111,7 @@ class RecommendationEngine:
                 reverse=True
             )
             
-            logger.info(f"최종 추천 장소: {sorted_places}")
+            # logger.info(f"최종 추천 장소: {sorted_places}")
             
             recommendations = [
                 Recommendation(
