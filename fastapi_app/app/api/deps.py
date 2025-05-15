@@ -53,11 +53,8 @@ def get_llm() -> ChatGoogleGenerativeAI:
 def get_place_store() -> Generator[PlaceStore, None, None]:
     store = None
     try:
-        logger.info("🔧 PlaceStore 인스턴스 생성 시도")
         store = PlaceStore()
-        logger.info("✅ PlaceStore 인스턴스 생성 성공")
         yield store
-        logger.info("✅ PlaceStore yield 이후 로직 실행됨")
     except Exception as e:
         import traceback
         logger.error("❌ get_place_store() 예외 발생:\n" + traceback.format_exc())
@@ -67,7 +64,6 @@ def get_place_store() -> Generator[PlaceStore, None, None]:
         )
     finally:
         if store:
-            logger.info("🧹 PlaceStore 연결 종료 시도")
             store.close()
 
 
