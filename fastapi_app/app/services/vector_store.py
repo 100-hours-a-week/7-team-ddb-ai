@@ -43,12 +43,7 @@ class PlaceStore:
         db_path = settings.VECTOR_STORE_PATH
 
         if not os.path.exists(db_path) or not os.listdir(db_path):
-            print(f"✅ 벡터 저장소 경로가 없거나 비어있음: {db_path}")
-            print("👉 벡터 저장소를 초기화 중...")
             make_chroma_db()
-            print("✅ 벡터 저장소 초기화 완료")
-        else:
-            print(f"📂 기존 벡터 저장소 사용: {db_path}")
 
         # ChromaDB 클라이언트 초기화
         self.client = chromadb.PersistentClient(path=db_path)
@@ -69,7 +64,6 @@ class PlaceStore:
                 try:
                     # 기존 컬렉션 확인
                     self.client.get_collection(name=category)
-                    print(f"컬렉션 '{category}' 이미 존재함")
                 except Exception as e:
                     raise Exception(f"컬렉션 미존재: {str(e)}")
         except Exception as e:
@@ -125,12 +119,12 @@ class PlaceStore:
             Exception: 검색 중 오류 발생 시
         """            
         try:
-            logger.info(f"장소 검색 시작: 카테고리={category}, 키워드={keyword}")
+            # logger.info(f"장소 검색 시작: 카테고리={category}, 키워드={keyword}")
             collection_name = self.category_map[category]
             
             try:
                 collection = self.client.get_collection(name=collection_name)
-                logger.info(f"컬렉션 '{collection_name}' 로드 완료")
+                # logger.info(f"컬렉션 '{collection_name}' 로드 완료")
             except Exception as e:
                 logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
                 raise
@@ -140,19 +134,19 @@ class PlaceStore:
 
             try:
                 keyword_vec = self.encode_text(keyword)
-                logger.info("키워드 임베딩 완료")
+                # logger.info("키워드 임베딩 완료")
             except Exception as e:
                 logger.error(f"키워드 임베딩 실패: {str(e)}")
                 raise
             
             try:
-                logger.info(f"벡터 검색 시작: n_results={n_results}")
+                # logger.info(f"벡터 검색 시작: n_results={n_results}")
                 results = collection.query(
                     query_embeddings=[keyword_vec],
                     n_results=n_results,
                     include=["documents", "metadatas", "distances"]
                 )
-                logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
+                # logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
                 
                 # 결과 검증
                 if not results or not results.get('metadatas') or not results['metadatas'][0]:
