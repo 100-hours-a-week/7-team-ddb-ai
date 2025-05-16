@@ -38,6 +38,9 @@ app.include_router(api_v1_router, prefix="/api")
 # 요청/응답 로깅 미들웨어
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+        
     start_time = time.time()
     try:
         logger.info(f"요청 시작: {request.method} {request.url}")
