@@ -6,7 +6,9 @@
     - RecommendationEngine: 추천 엔진 클래스
 """
 
+import math
 import logging
+
 from typing import Dict, List, Any
 from collections import defaultdict
 from app.services.vector_store import PlaceStore
@@ -83,7 +85,9 @@ class RecommendationEngine:
                             
                         # 유사도 계산 및 점수 누적
                         for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
-                            if not meta or not dist:
+                            if meta is None:
+                                continue
+                            if dist is None or (isinstance(dist, float) and math.isnan(dist)):
                                 continue
                             pid = meta.get("place_id")
                             if not pid:
