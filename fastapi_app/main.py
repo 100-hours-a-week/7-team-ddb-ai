@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as api_v1_router
-from app.api.deps import get_logger_dep
+from app.logging.di import get_logger_dep
 
 # 로깅 설정
 logging.basicConfig(
@@ -37,7 +37,8 @@ app.include_router(api_v1_router, prefix="/api")
 
 # 요청/응답 로깅 미들웨어
 @app.middleware("http")
-async def log_requests(request: Request, call_next, logger=Depends(get_logger_dep)):
+async def log_requests(request: Request, call_next):
+    logger = get_logger_dep()
     if request.url.path == "/health":
         return await call_next(request)
     start_time = time.time()
