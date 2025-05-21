@@ -14,6 +14,8 @@ import os
 from fastapi import Depends
 from app.core.config import settings
 
+_logger = None
+
 def setup_logger() -> logging.Logger:
     """
     로거 설정
@@ -55,4 +57,7 @@ def get_logger() -> logging.Logger:
     Returns:
         logging.Logger: 설정된 로거 인스턴스
     """
-    return setup_logger()
+    global _logger
+    if _logger is None:
+        _logger = setup_logger()
+    return _logger

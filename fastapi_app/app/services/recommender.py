@@ -33,7 +33,8 @@ class RecommenderService:
     def __init__(
         self,
         llm: ChatGoogleGenerativeAI,
-        place_store: PlaceStore
+        place_store: PlaceStore,
+        logger=None
     ):
         """
         RecommenderService 초기화
@@ -45,6 +46,10 @@ class RecommenderService:
         self.llm = llm
         self.chain = self._create_chain()
         self.recommendation_engine = RecommendationEngine(place_store)
+        if logger is None:
+            from app.logging.di import get_logger_dep
+            logger = get_logger_dep()
+        self.logger = logger
     
     def _create_chain(self):
         """
@@ -111,6 +116,7 @@ class RecommenderService:
         """
         try:
             # 1. 키워드 추출
+            self.logger.info(f"추천 요청 user_input: {user_input}")
             response = await self.chain.ainvoke({"user_input": user_input})
             keywords_str = response.content
             
