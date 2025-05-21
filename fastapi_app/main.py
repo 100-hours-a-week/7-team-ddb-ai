@@ -43,10 +43,10 @@ async def log_requests(request: Request, call_next):
         return await call_next(request)
     start_time = time.time()
     try:
-        logger.info(f"요청 시작: {request.method} {request.url}")
+        # logger.info(f"요청 시작: {request.method} {request.url}")
         response = await call_next(request)
         process_time = time.time() - start_time
-        logger.info(f"요청 완료: {request.method} {request.url} - 상태: {response.status_code} - 소요시간: {process_time:.2f}초")
+        # logger.info(f"요청 완료: {request.method} {request.url} - 상태: {response.status_code} - 소요시간: {process_time:.2f}초")
         return response
     except Exception as e:
         logger.error(f"요청 처리 중 오류 발생: {str(e)}")
