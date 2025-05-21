@@ -23,8 +23,8 @@ from sentence_transformers import SentenceTransformer
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
 from app.data.chroma_db import make_chroma_db
-
-logger = logging.getLogger(__name__)
+from fastapi import Depends
+from app.api.deps import get_logger_dep
 
 class PlaceStore:
     """
@@ -38,8 +38,11 @@ class PlaceStore:
         category_map (Dict[str, str]): 카테고리 매핑
     """
     
-    def __init__(self):
+    def __init__(self, logger=None):  # None으로 지정하는 이유는 추후 의존성 주입의 유연성을 위함 (예: 테스트 환경에서는 로거를 직접 전달할 수 있음)
         """PlaceStore 초기화"""
+        if logger is None:
+            logger = get_logger_dep()
+        self.logger = logger
         db_path = settings.VECTOR_STORE_PATH
 
         if not os.path.exists(db_path) or not os.listdir(db_path):
@@ -126,7 +129,7 @@ class PlaceStore:
                 collection = self.client.get_collection(name=collection_name)
                 # logger.info(f"컬렉션 '{collection_name}' 로드 완료")
             except Exception as e:
-                logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
+                self.logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
                 raise
             
             if n_results is None:
@@ -136,7 +139,7 @@ class PlaceStore:
                 keyword_vec = self.encode_text(keyword)
                 # logger.info("키워드 임베딩 완료")
             except Exception as e:
-                logger.error(f"키워드 임베딩 실패: {str(e)}")
+                self.logger.error(f"키워드 임베딩 실패: {str(e)}")
                 raise
             
             try:
@@ -150,7 +153,7 @@ class PlaceStore:
                 
                 # 결과 검증
                 if not results or not results.get('metadatas') or not results['metadatas'][0]:
-                    logger.warning("검색 결과가 없습니다.")
+                    self.logger.warning("검색 결과가 없습니다.")
                     return {
                         'metadatas': [[]],
                         'distances': [[]],
@@ -160,14 +163,14 @@ class PlaceStore:
                 return results, keyword_vec
                 
             except Exception as e:
-                logger.error(f"벡터 검색 실패: {str(e)}")
+                self.logger.error(f"벡터 검색 실패: {str(e)}")
                 raise
             
         except KeyError:
-            logger.error(f"유효하지 않은 카테고리: {category}")
+            self.logger.error(f"유효하지 않은 카테고리: {category}")
             raise ValueError(f"유효하지 않은 카테고리: {category}")
         except Exception as e:
-            logger.error(f"장소 검색 중 오류 발생: {str(e)}")
+            self.logger.error(f"장소 검색 중 오류 발생: {str(e)}")
             raise Exception(f"장소 검색 중 오류 발생: {str(e)}")
     
     def close(self) -> None:

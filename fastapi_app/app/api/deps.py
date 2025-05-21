@@ -13,7 +13,7 @@ API 엔드포인트에서 사용되는 의존성 모듈
 
 import logging
 
-logger = logging.getLogger(__name__)
+from app.logging.config import get_logger
 from fastapi import Depends, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Generator
@@ -26,6 +26,12 @@ from app.services.vector_store import PlaceStore
 # from typing import Generator
 # from app.logging.config import setup_logger
 # from app.cache.redis import get_redis_client
+
+def get_logger_dep() -> logging.Logger:
+    """
+    FastAPI 의존성 주입용 로거 반환 함수
+    """
+    return get_logger()
 
 # LLM 의존성
 def get_llm() -> ChatGoogleGenerativeAI:
@@ -50,7 +56,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
             detail=f"LLM 초기화 실패: {str(e)}"
         )
 
-def get_place_store() -> Generator[PlaceStore, None, None]:
+def get_place_store(logger: logging.Logger = Depends(get_logger_dep)) -> Generator[PlaceStore, None, None]:
     store = None
     try:
         store = PlaceStore()
@@ -70,7 +76,8 @@ def get_place_store() -> Generator[PlaceStore, None, None]:
 # 추천 서비스 의존성
 def get_recommender(
     llm: ChatGoogleGenerativeAI = Depends(get_llm),
-    place_store: PlaceStore = Depends(get_place_store)
+    place_store: PlaceStore = Depends(get_place_store),
+    logger: logging.Logger = Depends(get_logger_dep)
 ) -> RecommenderService:
     """
     추천 서비스 의존성
@@ -91,6 +98,7 @@ def get_recommender(
             place_store=place_store
         )
     except Exception as e:
+        logger.error(f"추천 서비스 초기화 실패: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"추천 서비스 초기화 실패: {str(e)}"
@@ -98,14 +106,11 @@ def get_recommender(
 
 # TODO: 추후 구현 예정
 # # 로깅 의존성
-# def get_logger() -> logging.Logger:
+# def get_logger_dep() -> logging.Logger:
 #     """
-#     로깅 의존성
-#     
-#     Returns:
-#         logging.Logger: 설정된 로거 인스턴스
+#     FastAPI 의존성 주입용 로거 반환 함수
 #     """
-#     return setup_logger()
+#     return get_logger()
 
 # # 캐시 의존성
 # def get_cache():

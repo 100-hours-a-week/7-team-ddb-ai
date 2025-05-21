@@ -10,6 +10,7 @@ Python의 logging 모듈을 사용하여 로깅을 구성합니다.
 """
 
 import logging
+import os
 from fastapi import Depends
 from app.core.config import settings
 
@@ -27,14 +28,23 @@ def setup_logger() -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_handler.setLevel(settings.LOG_LEVEL)
     
+    # 파일 핸들러 추가
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    file_handler = logging.FileHandler(f"{log_dir}/app.log", encoding="utf-8")
+    file_handler.setLevel(settings.LOG_LEVEL)
+    
     # 포맷터 설정
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
     
-    # 핸들러 추가
-    logger.addHandler(console_handler)
+    # 중복 핸들러 방지
+    if not logger.handlers:
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
     
     return logger
 
