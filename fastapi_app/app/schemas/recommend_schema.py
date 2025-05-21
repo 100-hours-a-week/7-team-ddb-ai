@@ -29,9 +29,11 @@ class Recommendation(BaseModel):
     Attributes:
         id (int): 추천 장소의 고유 식별자
         similarity_score (float): 추천 장소와 사용자 요청 간의 유사도 점수
+        keyword (List[int]): 해당 추천 장소에 관련된 키워드 리스트
     """
     id: int
     similarity_score: float
+    keyword: List[str]
 
 class RecommendResponse(BaseModel):
     """

@@ -56,7 +56,7 @@ class RecommendationEngine:
         """
         try:
             self.logger.info(f"추천 시작 : 키워드={keywords}")
-            category_place_max_scores = defaultdict(lambda: defaultdict(float))
+            category_place_max_scores = defaultdict(lambda: defaultdict(lambda: {'score': 0.0, 'keyword': None}))
             
             # 전체 키워드 수를 고려한 카테고리 가중치 설정
             total_keywords_num = sum(len(v) for v in keywords.values())
@@ -94,19 +94,30 @@ class RecommendationEngine:
                             if not pid:
                                 continue
                             sim = 1 - dist
+                            current_max = category_place_max_scores[category][pid]['score']
 
-                            category_place_max_scores[category][pid] = max(category_place_max_scores[category][pid], sim)
-
+                            if sim > current_max:
+                                category_place_max_scores[category][pid] = {
+                                    'score': sim,
+                                    'keyword': meta.get("keyword")
+                                }
                     except Exception as e:
                         self.logger.error(f"키워드 '{keyword}' 처리 중 오류 발생: {str(e)}")
                         continue
             
             final_scores = defaultdict(float)
+            pid_keyword_map = defaultdict(list)
             for category, place_dict in category_place_max_scores.items():
-                for pid, score in place_dict.items():
+                for pid, info in place_dict.items():
+                    score = info['score']
+                    keyword = info['keyword']
+
                     if category == "장소 카테고리":
                         score *= category_weight
                     final_scores[pid] += score
+
+                    if keyword and keyword not in pid_keyword_map[pid]:
+                        pid_keyword_map[pid].append(keyword)
 
             if not final_scores:
                 # self.logger.warning("추천할 장소가 없습니다.")
@@ -121,7 +132,8 @@ class RecommendationEngine:
             recommendations = [
                 Recommendation(
                     id=pid,
-                    similarity_score=score
+                    similarity_score=score,
+                    keyword=pid_keyword_map[pid]
                 )
                 for pid, score in sorted_places
             ]
