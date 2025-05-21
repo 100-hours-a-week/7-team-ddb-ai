@@ -55,7 +55,7 @@ class RecommendationEngine:
             Exception: 추천 생성 중 오류 발생 시
         """
         try:
-            self.logger.info(f"추천 시작: 키워드={keywords}")
+            self.logger.info(f"추천 시작 : 키워드={keywords}")
             category_place_max_scores = defaultdict(lambda: defaultdict(float))
             
             # 전체 키워드 수를 고려한 카테고리 가중치 설정
