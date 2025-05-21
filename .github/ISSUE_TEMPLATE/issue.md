@@ -1,7 +1,7 @@
 ---
 name: issue
 about: issue template
-title: "[과정][태그] 내용 [진척도%] "
+title: "[AI][태그] 내용 [0%] "
 labels: AI
 assignees: ''
 
