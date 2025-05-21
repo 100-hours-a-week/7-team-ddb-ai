@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     
     # # 로깅 설정
-    # LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
     class Config:
         env_file = ".env"
