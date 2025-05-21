@@ -1,0 +1,133 @@
+pipeline {
+    agent any
+
+    environment {
+        SERVICE_NAME    = 'ai'
+        PROJECT_ID      = 'velvety-calling-458402-c1'
+        REGION          = 'asia-northeast3'
+        GAR_HOST        = 'asia-northeast3-docker.pkg.dev'
+        CONTAINER_NAME  = 'ai'
+        PORT            = '8000'
+        SSH_KEY_PATH    = '/var/jenkins_home/.ssh/id_rsa'
+        SSH_USER        = 'peter'
+    }
+
+    stages {
+        stage('Set Environment by Branch') {
+            steps {
+                script {
+                    def branchName = env.GIT_BRANCH.replaceFirst(/^origin\//, '')
+                    env.BRANCH = branchName
+                    
+                    // 브랜치에 따라 환경 분기 설정
+                    if (branchName == 'main') {
+                        env.AI_PRIVATE_IP = '10.10.40.2'
+                        env.ENV_LABEL = 'prod'
+                        env.REPO_NAME = 'dolpin-docker-image-prod'
+                    } else if (branchName == 'dev') {
+                        env.AI_PRIVATE_IP = '10.20.40.2'
+                        env.ENV_LABEL = 'dev'
+                        env.REPO_NAME = 'dolpin-docker-image-dev'
+                    } else {
+                        error "지원되지 않는 브랜치입니다: ${branchName}"
+                    }
+
+                    env.TAG = "${env.SERVICE_NAME}:${env.BUILD_NUMBER}"
+                    env.GAR_IMAGE = "${env.GAR_HOST}/${env.PROJECT_ID}/${env.REPO_NAME}/${env.TAG}"
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('GAR 인증') {
+            steps {
+                sh "gcloud auth configure-docker ${env.GAR_HOST} --quiet"
+            }
+        }
+
+        stage('Docker Build & Push to GAR') {
+            steps {
+                dir('fastapi_app') {
+                    sh """
+                        docker build -t ${env.GAR_IMAGE} .
+                        docker push ${env.GAR_IMAGE}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to AI via SSH') {
+            steps {
+                script {
+                    def credId = ''
+                    def envFileId = ''
+
+                    if (env.BRANCH == 'main') {
+                        credId = 'ai-sa-key-prod'
+                        envFileId = 'ai-prod-file'
+                    } else if (env.BRANCH == 'dev') {
+                        credId = 'ai-sa-key-dev'
+                        envFileId = 'ai-dev-file'
+                    } else {
+                        error "지원되지 않는 브랜치입니다: ${env.BRANCH}"
+                    }
+
+                    // GCP Secret Manager에서 서비스 계정 키 다운로드
+                    sh """
+                    gcloud secrets versions access latest \
+                    --secret="${credId}" \
+                    --project="${env.PROJECT_ID}" > gcp-key.json
+                    """
+
+                    withCredentials([
+                        file(credentialsId: envFileId, variable: 'ENV_FILE'),
+                    ]) {
+
+                        def deployScript = """
+#!/bin/bash
+set -e
+
+mv /tmp/.env /home/${env.SSH_USER}/.env
+mv /tmp/gcp-key.json /home/${env.SSH_USER}/gcp-key.json
+chown ${env.SSH_USER}:${env.SSH_USER} /home/${env.SSH_USER}/.env /home/${env.SSH_USER}/gcp-key.json
+chmod 600 /home/${env.SSH_USER}/.env /home/${env.SSH_USER}/gcp-key.json
+
+export HOME=/home/${env.SSH_USER}
+gcloud auth activate-service-account --key-file="/home/${env.SSH_USER}/gcp-key.json"
+gcloud config set project ${env.PROJECT_ID} --quiet
+gcloud auth configure-docker ${env.GAR_HOST} --quiet
+gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${env.GAR_HOST}
+
+sudo docker stop ${env.CONTAINER_NAME} || true
+sudo docker rm ${env.CONTAINER_NAME} || true
+
+docker pull ${env.GAR_IMAGE}
+
+sudo docker run -d --name ${env.CONTAINER_NAME} \\
+  --env-file /home/${env.SSH_USER}/.env \\
+  -p ${env.PORT}:${env.PORT} \\
+  ${env.GAR_IMAGE}
+"""
+                // Jenkins 워크스페이스에 배포 스크립트 파일 저장
+                writeFile file: 'deploy.sh', text: deployScript
+
+                // 키와 스크립트 전송 후 실행
+                sh """
+chmod 600 ${env.SSH_KEY_PATH}
+scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no \$ENV_FILE ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/.env
+scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no gcp-key.json ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/gcp-key.json
+scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no deploy.sh ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/deploy.sh
+
+ssh -tt -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no ${env.SSH_USER}@${env.AI_PRIVATE_IP} "bash /tmp/deploy.sh"
+"""
+                    }
+                }
+            }
+        }
+    }
+}
