@@ -13,7 +13,7 @@ API 엔드포인트에서 사용되는 의존성 모듈
 
 import logging
 
-from app.logging.config import get_logger
+from app.logging.di import get_logger_dep
 from fastapi import Depends, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Generator
@@ -31,7 +31,7 @@ def get_logger_dep() -> logging.Logger:
     """
     FastAPI 의존성 주입용 로거 반환 함수
     """
-    return get_logger()
+    return get_logger_dep()
 
 # LLM 의존성
 def get_llm() -> ChatGoogleGenerativeAI:

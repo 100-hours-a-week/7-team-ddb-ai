@@ -33,7 +33,7 @@ class RecommendationEngine:
         """
         self.place_store = place_store
         if logger is None:
-            from app.api.deps import get_logger_dep
+            from app.logging.di import get_logger_dep
             logger = get_logger_dep()
         self.logger = logger
     

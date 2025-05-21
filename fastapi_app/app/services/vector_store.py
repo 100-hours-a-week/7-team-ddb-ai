@@ -24,7 +24,8 @@ from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
 from app.data.chroma_db import make_chroma_db
 from fastapi import Depends
-from app.api.deps import get_logger_dep
+# from app.api.deps import get_logger_dep  # 삭제
+# from app.logging.config import get_logger  # 이미 삭제됨
 
 class PlaceStore:
     """
@@ -41,6 +42,7 @@ class PlaceStore:
     def __init__(self, logger=None):  # None으로 지정하는 이유는 추후 의존성 주입의 유연성을 위함 (예: 테스트 환경에서는 로거를 직접 전달할 수 있음)
         """PlaceStore 초기화"""
         if logger is None:
+            from app.logging.di import get_logger_dep
             logger = get_logger_dep()
         self.logger = logger
         db_path = settings.VECTOR_STORE_PATH
