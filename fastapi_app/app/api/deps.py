@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.services.recommender import RecommenderService
 from app.services.vector_store import PlaceStore
 from app.logging.di import get_logger_dep
-from fastapi_app.monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
+from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator

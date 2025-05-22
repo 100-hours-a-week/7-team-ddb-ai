@@ -17,7 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.vector_store import PlaceStore
 from app.schemas.recommend_schema import RecommendResponse
 from app.services.recommend_engine import RecommendationEngine
-from app.services.recommend_metrics import RecommendMetrics  # 추천 API 메트릭 클래스 임포트
+from monitoring.metrics import RecommendMetrics  # 추천 API 메트릭 클래스 임포트
 
 class RecommenderService:
     """

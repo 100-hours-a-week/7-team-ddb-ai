@@ -11,3 +11,4 @@ sentence-transformers==4.1.0
 huggingface_hub==0.31.1
 pysqlite3-binary==0.5.4
 pandas==2.2.3
+prometheus_client
