@@ -11,7 +11,7 @@ FastAPI를 사용하여 HTTP 요청을 처리하고 추천 서비스와 연동�
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.services.recommender import RecommenderService
 from app.schemas.recommend_schema import RecommendResponse
-from app.api.deps import get_recommender
+from app.api.deps import get_recommender, get_recommend_metrics  # 추천 API 메트릭 의존성 함수 임포트
 
 router = APIRouter()
 
@@ -24,7 +24,8 @@ router = APIRouter()
 )
 async def get_recommendation(
     text: str = Query(..., description="추천을 위한 키워드나 문장"),
-    recommender: RecommenderService = Depends(get_recommender)
+    recommender: RecommenderService = Depends(get_recommender),
+    metrics = Depends(get_recommend_metrics)  # 메트릭 객체를 의존성 주입으로 받음
 ) -> RecommendResponse:
     """
     추천 요청을 처리하는 엔드포인트
@@ -37,6 +38,7 @@ async def get_recommendation(
     Args:
         text (str): 사용자의 추천 요청 키워드
         recommender (RecommenderService): 의존성으로 주입된 추천 서비스
+        metrics (RecommendMetrics): 의존성으로 주입된 추천 메트릭스
         
     Returns:
         RecommendResponse: 추천 결과 데이터
@@ -45,6 +47,7 @@ async def get_recommendation(
         HTTPException: 추천 생성 과정에서 오류가 발생한 경우
     """
     try:
+        recommender.metrics = metrics  # 엔드포인트에서 RecommenderService에 메트릭 객체 주입
         return await recommender.get_recommendation(user_input=text)
     except Exception as e:
         raise HTTPException(

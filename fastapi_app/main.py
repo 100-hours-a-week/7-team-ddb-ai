@@ -2,11 +2,12 @@ import time
 import logging
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as api_v1_router
 from app.logging.di import get_logger_dep
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # 로깅 설정
 logging.basicConfig(
@@ -66,3 +67,7 @@ async def health_check():
         "version": "1.0.0",
         "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

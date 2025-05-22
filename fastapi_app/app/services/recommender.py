@@ -9,6 +9,7 @@ LangChain을 사용하여 사용자 입력을 처리하고 추천을 생성합�
 """
 
 import json
+import time
 
 from typing import List, Dict
 from langchain.prompts import ChatPromptTemplate
@@ -16,6 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.vector_store import PlaceStore
 from app.schemas.recommend_schema import RecommendResponse
 from app.services.recommend_engine import RecommendationEngine
+from app.services.recommend_metrics import RecommendMetrics  # 추천 API 메트릭 클래스 임포트
 
 class RecommenderService:
     """
@@ -28,12 +30,14 @@ class RecommenderService:
         llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
         chain: 키워드 추출을 위한 LangChain 체인
         recommendation_engine (RecommendationEngine): 추천 엔진
+        metrics (RecommendMetrics): Prometheus 메트릭 객체
     """
     
     def __init__(
         self,
         llm: ChatGoogleGenerativeAI,
         place_store: PlaceStore,
+        metrics=None,
         logger=None
     ):
         """
@@ -42,10 +46,12 @@ class RecommenderService:
         Args:
             llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
             place_store (PlaceStore): 장소 벡터 저장소 인스턴스
+            metrics (RecommendMetrics): Prometheus 메트릭 객체
         """
         self.llm = llm
         self.chain = self._create_chain()
         self.recommendation_engine = RecommendationEngine(place_store)
+        self.metrics = metrics  # DI로 주입받은 메트릭 객체 저장
         if logger is None:
             from app.logging.di import get_logger_dep
             logger = get_logger_dep()
@@ -114,6 +120,9 @@ class RecommenderService:
         Raises:
             Exception: 추천 생성 과정에서 오류가 발생한 경우
         """
+        start = time.time()
+        if self.metrics:
+            self.metrics.request_count.inc()  # 추천 API 호출 시 카운터 증가
         try:
             # 1. 키워드 추출
             self.logger.info(f"추천 요청 : user_input = {user_input}")
@@ -133,3 +142,7 @@ class RecommenderService:
             
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")
+        finally:
+            if self.metrics:
+                # 추천 API 처리 시간 기록 (Histogram)
+                self.metrics.request_latency.observe(time.time() - start)

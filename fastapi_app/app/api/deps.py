@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.services.recommender import RecommenderService
 from app.services.vector_store import PlaceStore
 from app.logging.di import get_logger_dep
+from fastapi_app.monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator
@@ -97,6 +98,11 @@ def get_recommender(
             status_code=500,
             detail=f"추천 서비스 초기화 실패: {str(e)}"
         )
+
+# 추천 API 메트릭을 의존성 주입으로 반환하는 함수
+# FastAPI 엔드포인트에서 Depends(get_recommend_metrics)로 사용 가능
+def get_recommend_metrics():
+    return recommend_metrics
 
 # TODO: 추후 구현 예정
 # # 로깅 의존성
