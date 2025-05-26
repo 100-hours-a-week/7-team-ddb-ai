@@ -26,11 +26,11 @@ def setup_logger() -> logging.Logger:
     logger = logging.getLogger("app")
     logger.setLevel(settings.LOG_LEVEL)
     
-    # 콘솔 핸들러 설정
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(settings.LOG_LEVEL)
+    # 콘솔 핸들러 설정 (터미널 출력)
+    # console_handler = logging.StreamHandler()
+    # console_handler.setLevel(settings.LOG_LEVEL)
     
-    # 파일 핸들러 추가
+    # 파일 핸들러 추가 (로그 파일 저장)
     log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
     file_handler = logging.FileHandler(f"{log_dir}/app.log", encoding="utf-8")
@@ -40,12 +40,12 @@ def setup_logger() -> logging.Logger:
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    console_handler.setFormatter(formatter)
+    # console_handler.setFormatter(formatter)
     file_handler.setFormatter(formatter)
     
     # 중복 핸들러 방지
     if not logger.handlers:
-        logger.addHandler(console_handler)
+        # logger.addHandler(console_handler)
         logger.addHandler(file_handler)
     
     return logger
