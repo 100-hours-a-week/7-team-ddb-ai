@@ -106,7 +106,7 @@ class PlaceStore:
         self,
         category: str,
         keyword: str,
-        n_results: Optional[int] = 350
+        n_results: Optional[int] = 250
     ) -> Dict[str, Any]:
         """
         키워드와 유사한 장소 검색
