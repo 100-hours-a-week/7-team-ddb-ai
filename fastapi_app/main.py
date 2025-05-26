@@ -10,10 +10,10 @@ from app.logging.di import get_logger_dep
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# )
 
 app = FastAPI(
     title="장소 추천 API",
