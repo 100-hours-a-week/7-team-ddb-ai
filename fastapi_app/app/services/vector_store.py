@@ -106,7 +106,7 @@ class PlaceStore:
         self,
         category: str,
         keyword: str,
-        n_results: Optional[int] = None
+        n_results: Optional[int] = 350
     ) -> Dict[str, Any]:
         """
         키워드와 유사한 장소 검색
@@ -133,9 +133,6 @@ class PlaceStore:
             except Exception as e:
                 self.logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
                 raise
-            
-            if n_results is None:
-                n_results = collection.count()
 
             try:
                 keyword_vec = self.encode_text(keyword)
