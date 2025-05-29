@@ -130,12 +130,13 @@ gcloud config set project ${env.PROJECT_ID} --quiet
 gcloud auth configure-docker ${env.GAR_HOST} --quiet
 gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://${env.GAR_HOST}
 
-sudo docker stop ${env.CONTAINER_NAME} || true
-sudo docker rm ${env.CONTAINER_NAME} || true
+docker stop ${env.CONTAINER_NAME} || true
+docker rm ${env.CONTAINER_NAME} || true
 
+docker system prune -a --volumes -f
 docker pull ${env.GAR_IMAGE}
 
-sudo docker run -d --name ${env.CONTAINER_NAME} \\
+docker run -d --name ${env.CONTAINER_NAME} \\
   --env-file /home/${env.SSH_USER}/.env \\
   -v /home/${env.SSH_USER}/logs:/app/logs \
   -p ${env.PORT}:${env.PORT} \\
