@@ -59,14 +59,23 @@ class RecommendationEngine:
             category_place_max_scores = defaultdict(lambda: defaultdict(lambda: {'score': 0.0, 'keyword': None}))
             
             # 전체 키워드 수를 고려한 카테고리 가중치 설정
-            total_keywords_num = sum(len(v) for v in keywords.values())
-            category_weight = (total_keywords_num//2) + 1
+            total_keywords_num = sum(1 for k, v in keywords.items() if k != "장소 카테고리" and v)
+            has_food_keywords = bool(keywords.get("음식/제품"))
 
             # 최종 추천 장소 유사도 임계치 설정
-            SIMILARITY_THRESHOLD = category_weight * 0.8
+            SIMILARITY_THRESHOLD = total_keywords_num * 0.8
+
+            # 사용자의 장소 카테고리 키워드
+            place_category = None
 
             # 각 카테고리별로 처리
             for category, keyword_list in keywords.items():
+                if category == "장소 카테고리":
+                    # 장소 카테고리는 검색하지 않고 바로 값만 기록
+
+                    place_category = keyword_list[0] if keyword_list else None
+                    continue
+
                 if not keyword_list:  # 키워드가 없는 카테고리는 건너뛰기
                     # self.logger.info(f"카테고리 '{category}'에 키워드가 없어 건너뜁니다.")
                     continue
@@ -112,8 +121,8 @@ class RecommendationEngine:
                     score = info['score']
                     keyword = info['keyword']
 
-                    if category == "장소 카테고리":
-                        score *= category_weight
+                    if category == "음식/제품":
+                        score *= total_keywords_num
                     final_scores[pid] += score
 
                     if keyword and keyword not in pid_keyword_map[pid]:
@@ -121,7 +130,7 @@ class RecommendationEngine:
 
             if not final_scores:
                 # self.logger.warning("추천할 장소가 없습니다.")
-                return RecommendResponse(recommendations=[])
+                return RecommendResponse(recommendations=[], place_category=place_category)
             
             # 필터링 및 정렬
             filtered_scores = {pid: score for pid, score in final_scores.items() if score >= SIMILARITY_THRESHOLD}
@@ -138,7 +147,7 @@ class RecommendationEngine:
                 for pid, score in sorted_places
             ]
             
-            return RecommendResponse(recommendations=recommendations)
+            return RecommendResponse(recommendations=recommendations, place_category=place_category)
             
         except Exception as e:
             self.logger.error(f"추천 생성 중 오류 발생: {str(e)}")

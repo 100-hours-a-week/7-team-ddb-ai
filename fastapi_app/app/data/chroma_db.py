@@ -77,15 +77,6 @@ def make_chroma_db():
             continue
         
         place_id = int(row["id"].values[0])
-        place_category = row["place_category"].values[0]
-
-        # ✅ '장소 카테고리' 키가 없으면 새로 리스트 만들고 추가
-        if "장소 카테고리" not in keywords_by_category:
-            keywords_by_category["장소 카테고리"] = []
-
-        # ✅ 카테고리 값이 null이 아니면 추가
-        if pd.notnull(place_category):
-            keywords_by_category["장소 카테고리"].append(place_category)
 
         for kor_category, keyword_list in keywords_by_category.items():
             if not keyword_list:

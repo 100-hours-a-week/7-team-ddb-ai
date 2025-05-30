@@ -41,7 +41,9 @@ class RecommendResponse(BaseModel):
     
     Attributes:
         recommendations (List[Recommendation]): 추천 장소 목록
+        place_category (str): 사용자가 원하는 장소의 카테고리 (예: 음식점, 카페 등)
     """
     recommendations: List[Recommendation]
+    place_category: Optional[str] = None
 
 
