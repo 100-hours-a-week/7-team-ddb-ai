@@ -52,7 +52,7 @@ def make_chroma_db():
     chroma_path = settings.VECTOR_STORE_PATH
 
     # ✅ 임베딩 모델 설정
-    embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+    embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device='cpu')
     embedding_dim = embedding_model.get_sentence_embedding_dimension()
 
     # ✅ Chroma 저장 경로 생성
