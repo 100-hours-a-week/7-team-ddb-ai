@@ -18,7 +18,6 @@ import chromadb
 import numpy as np
 
 from typing import Optional
-from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
@@ -26,6 +25,7 @@ from app.data.chroma_db import make_chroma_db
 from fastapi import Depends
 # from app.api.deps import get_logger_dep  # 삭제
 # from app.logging.config import get_logger  # 이미 삭제됨
+from app.core.embedding import get_embedding_model
 
 class PlaceStore:
     """
@@ -52,7 +52,7 @@ class PlaceStore:
 
         # ChromaDB 클라이언트 초기화
         self.client = chromadb.PersistentClient(path=db_path)
-        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device='cpu')
+        self.embedding_model = get_embedding_model()
         self.category_map = CATEGORY_MAP
 
         # 컬렉션 초기화

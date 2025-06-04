@@ -13,6 +13,7 @@ from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunct
 
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
+from app.core.embedding import get_embedding_model
 
 def is_valid_embedding(vec, expected_dim=768):
     if not isinstance(vec, list):
@@ -52,7 +53,7 @@ def make_chroma_db():
     chroma_path = settings.VECTOR_STORE_PATH
 
     # ✅ 임베딩 모델 설정
-    embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device='cpu')
+    embedding_model = get_embedding_model()
     embedding_dim = embedding_model.get_sentence_embedding_dimension()
 
     # ✅ Chroma 저장 경로 생성
