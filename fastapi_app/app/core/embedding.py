@@ -1,14 +1,10 @@
-import threading
-from sentence_transformers import SentenceTransformer
-from app.core.config import settings
-
-_embedding_model = None
-_embedding_model_lock = threading.Lock()
+from app.services.embedding_factory import EmbeddingModelFactory
 
 def get_embedding_model():
-    global _embedding_model
-    if _embedding_model is None:
-        with _embedding_model_lock:
-            if _embedding_model is None:
-                _embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME, device='cpu')
-    return _embedding_model 
+    """
+    임베딩 모델의 싱글톤 인스턴스를 반환합니다.
+    
+    Returns:
+        SentenceTransformer: 임베딩 모델 인스턴스
+    """
+    return EmbeddingModelFactory.get_instance() 

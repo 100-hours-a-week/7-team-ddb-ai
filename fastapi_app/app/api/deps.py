@@ -15,7 +15,6 @@ import logging
 
 from fastapi import Depends, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
-from typing import Generator
 
 from app.core.config import settings
 from app.services.recommender import RecommenderService
