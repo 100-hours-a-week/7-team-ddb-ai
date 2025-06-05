@@ -19,6 +19,7 @@ from typing import Generator
 
 from app.core.config import settings
 from app.services.recommender import RecommenderService
+from app.services.llm_factory import LLMFactory
 from app.services.vector_store import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
 from app.logging.di import get_logger_dep
@@ -41,11 +42,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
         HTTPException: LLM 초기화 실패 시
     """
     try:
-        return ChatGoogleGenerativeAI(
-            model=settings.MODEL_NAME,
-            google_api_key=settings.GOOGLE_API_KEY,
-            temperature=settings.TEMPERATURE
-        )
+        return LLMFactory.get_instance()
     except Exception as e:
         raise HTTPException(
             status_code=500,
