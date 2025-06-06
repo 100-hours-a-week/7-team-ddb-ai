@@ -10,6 +10,7 @@ LangChain을 사용하여 사용자 입력을 처리하고 추천을 생성합�
 
 import json
 import time
+import asyncio
 
 from typing import List, Dict
 from langchain.prompts import ChatPromptTemplate
@@ -140,7 +141,7 @@ class RecommenderService:
             keywords_json = keywords_str[start_idx:end_idx]
             keywords = json.loads(keywords_json)
             # 2. 추천 생성
-            return self.recommendation_engine.get_recommendations(keywords)
+            return await asyncio.to_thread(self.recommendation_engine.get_recommendations, keywords)
             
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")
