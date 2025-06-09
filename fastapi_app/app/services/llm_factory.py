@@ -7,7 +7,6 @@ class LLMFactory:
 
     @classmethod
     def _create_instance(cls):
-        print("test")
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
             model=settings.MODEL_NAME,
