@@ -23,6 +23,7 @@ from app.services.vector_store import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
 from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
+from app.services.moment_generator import GeneratorService
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator
@@ -93,6 +94,34 @@ def get_recommender(
 # FastAPI 엔드포인트에서 Depends(get_recommend_metrics)로 사용 가능
 def get_recommend_metrics():
     return recommend_metrics
+
+# 게시글 생성 서비스 의존성
+def get_moment_generator(
+    llm: ChatGoogleGenerativeAI = Depends(get_llm),
+    logger: logging.Logger = Depends(get_logger_dep)
+) -> GeneratorService:
+    """
+    게시글 생성 서비스 의존성
+    
+    Args:
+        llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
+        
+    Returns:
+        GeneratorService: 게시글 생성 서비스 인스턴스
+        
+    Raises:
+        HTTPException: 서비스 초기화 실패 시
+    """
+    try:
+        return GeneratorService(
+            llm=llm
+        )
+    except Exception as e:
+        logger.error(f"게시글 생성 서비스 초기화 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"게시글 생성 서비스 초기화 실패: {str(e)}"
+        )
 
 # TODO: 추후 구현 예정
 # # 로깅 의존성
