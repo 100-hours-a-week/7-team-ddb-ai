@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     VECTOR_STORE_PATH: str = os.getenv("VECTOR_STORE_PATH", "data/vector_store")
     EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
     VECTOR_STORE_COLLECTION_NAME: str = os.getenv("VECTOR_STORE_COLLECTION_NAME", "documents")
+
+    # ONNX 임베딩 모델 설정
+    ONNX_MODEL_PATH: str = os.getenv("ONNX_MODEL_PATH", "app/model/snunlp_KR-SBERT-V40K-klueNLI-augSTS_quant.onnx")
+    TOKENIZER_PATH: str = os.getenv("TOKENIZER_PATH", "app/model/krsbert_tokenizer")
     
     # TODO: 추후 구현 예정
     # # Redis 설정
