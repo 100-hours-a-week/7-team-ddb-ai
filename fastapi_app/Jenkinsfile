@@ -117,6 +117,30 @@ pipeline {
             }
         }
 
+        stage('Download Model from GCS') {
+            steps {
+                dir('fastapi_app') {
+                    script {
+                        sh """
+                        gcloud secrets versions access latest \
+                        --secret="jenkins-ssh-key-shared" \
+                        --project="${env.PROJECT_ID}" > jenkins-gcp-key.json
+                        """
+
+                        sh """
+                        gcloud auth activate-service-account --key-file=jenkins-gcp-key.json
+                        gcloud config set project ${env.PROJECT_ID}
+
+                        mkdir -p model
+                        gsutil -m cp -r gs://static-backup-bucket/embedding_model/krsbert_tokenizer model/
+                        gsutil -m cp gs://static-backup-bucket/embedding_model/snunlp_KR-SBERT-V40K-klueNLI-* model/
+                        """
+                    }
+                }
+            }
+        }
+
+
         stage('GAR 인증') {
             steps {
                 sh "gcloud auth configure-docker ${env.GAR_HOST} --quiet"

@@ -10,6 +10,7 @@ WORKDIR /app
 # 의존성 파일 복사
 COPY requirements.txt ./
 COPY pysqlite3_binary-0.5.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl .
+COPY model /app/model
 
 # wheel 설치에 필요한 최소 구성
 RUN pip install --upgrade pip
