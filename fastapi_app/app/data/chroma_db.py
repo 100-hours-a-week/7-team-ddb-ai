@@ -8,12 +8,10 @@ import json
 import chromadb
 import pandas as pd
 
-from sentence_transformers import SentenceTransformer
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
 from app.core.embedding import get_embedding_model
+from app.services.onnx_wrapper import ONNXEmbeddingFunction
 
 def is_valid_embedding(vec, expected_dim=768):
     if not isinstance(vec, list):
@@ -59,7 +57,7 @@ def make_chroma_db():
     # ✅ Chroma 저장 경로 생성
     os.makedirs(chroma_path, exist_ok=True)
     client = chromadb.PersistentClient(path=chroma_path)
-    embedding_func = SentenceTransformerEmbeddingFunction(model_name=settings.EMBEDDING_MODEL_NAME)
+    embedding_func = ONNXEmbeddingFunction(embedding_model)
 
     # ✅ 데이터 로드
     df_place_ids = pd.read_csv(csv_path)
