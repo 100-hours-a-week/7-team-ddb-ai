@@ -11,7 +11,7 @@ from app.logging.config import get_logger
 
 from typing import Dict, List, Any
 from collections import defaultdict
-from app.services.vector_store import PlaceStore
+from app.services.recommend.retriever import PlaceStore
 from app.schemas.recommend_schema import Recommendation, RecommendResponse
 
 class RecommendationEngine:
