@@ -17,13 +17,13 @@ from fastapi import Depends, HTTPException
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import settings
-from app.services.recommender import RecommenderService
+from app.services.recommend.service import RecommenderService
 from app.services.llm_factory import LLMFactory
-from app.services.vector_store import PlaceStore
+from app.services.recommend.retriever import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
 from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
-from app.services.moment_generator import GeneratorService
+from app.services.moment.generator import GeneratorService
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator

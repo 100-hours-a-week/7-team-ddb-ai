@@ -1,5 +1,5 @@
 import threading
-from app.services.vector_store import PlaceStore
+from app.services.recommend.retriever import PlaceStore
 
 class PlaceStoreFactory:
     _instance = None

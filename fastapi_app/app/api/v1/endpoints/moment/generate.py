@@ -9,7 +9,7 @@ FastAPI를 사용하여 HTTP 요청을 처리하고 추천 서비스와 연동�
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Body
-from app.services.moment_generator import GeneratorService
+from app.services.moment.generator import GeneratorService
 from app.schemas.moment_schema import GenerateRequest, GenerateResponse
 from app.api.deps import get_moment_generator
 
