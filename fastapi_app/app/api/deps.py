@@ -18,6 +18,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import settings
 from app.services.recommend.service import RecommenderService
+from app.services.recommend.keyword_extractor import KeywordExtractor
 from app.services.llm_factory import LLMFactory
 from app.services.recommend.retriever import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
@@ -48,6 +49,20 @@ def get_llm() -> ChatGoogleGenerativeAI:
             status_code=500,
             detail=f"LLM 초기화 실패: {str(e)}"
         )
+    
+def get_keyword_extractor(
+    llm: ChatGoogleGenerativeAI = Depends(get_llm)
+) -> KeywordExtractor:
+    try:
+        return KeywordExtractor(
+            llm=llm
+        )
+    except Exception as e:
+        logger.error(f"키워드 추출기 초기화 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"키워드 추출기 초기화 실패: {str(e)}"
+        )
 
 def get_place_store() -> PlaceStore:
     try:
@@ -61,7 +76,7 @@ def get_place_store() -> PlaceStore:
 
 # 추천 서비스 의존성
 def get_recommender(
-    llm: ChatGoogleGenerativeAI = Depends(get_llm),
+    keyword_extractor: KeywordExtractor = Depends(get_keyword_extractor),
     place_store: PlaceStore = Depends(get_place_store),
     logger: logging.Logger = Depends(get_logger_dep)
 ) -> RecommenderService:
@@ -80,7 +95,7 @@ def get_recommender(
     """
     try:
         return RecommenderService(
-            llm=llm,
+            keyword_extractor=keyword_extractor,
             place_store=place_store
         )
     except Exception as e:

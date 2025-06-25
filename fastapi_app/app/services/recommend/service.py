@@ -18,6 +18,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.recommend.retriever import PlaceStore
 from app.schemas.recommend_schema import RecommendResponse
 from app.services.recommend.engine import RecommendationEngine
+from app.services.recommend.keyword_extractor import KeywordExtractor
+from app.logging.di import get_logger_dep
 from monitoring.metrics import RecommendMetrics  # 추천 API 메트릭 클래스 임포트
 
 class RecommenderService:
@@ -28,15 +30,14 @@ class RecommenderService:
     LangChain을 사용하여 자연어 처리를 수행합니다.
     
     Attributes:
-        llm (ChatGoogleGenerativeAI): LangChain LLM 인스턴스
-        chain: 키워드 추출을 위한 LangChain 체인
+        keyword_extractor (KeywordExtractor): 키워드 추출
         recommendation_engine (RecommendationEngine): 추천 엔진
         metrics (RecommendMetrics): Prometheus 메트릭 객체
     """
     
     def __init__(
         self,
-        llm: ChatGoogleGenerativeAI,
+        keyword_extractor: KeywordExtractor,
         place_store: PlaceStore,
         metrics=None,
         logger=None
@@ -49,62 +50,12 @@ class RecommenderService:
             place_store (PlaceStore): 장소 벡터 저장소 인스턴스
             metrics (RecommendMetrics): Prometheus 메트릭 객체
         """
-        self.llm = llm
-        self.chain = self._create_chain()
+        self.keyword_extractor = keyword_extractor
         self.recommendation_engine = RecommendationEngine(place_store)
         self.metrics = metrics  # DI로 주입받은 메트릭 객체 저장
         if logger is None:
-            from app.logging.di import get_logger_dep
             logger = get_logger_dep()
         self.logger = logger
-    
-    def _create_chain(self):
-        """
-        키워드 추출을 위한 LangChain 체인 생성
-        
-        Returns:
-            RunnablePassthrough: 생성된 LangChain 체인
-        """
-        prompt = ChatPromptTemplate.from_template("""
-            당신은 장소 검색 키워드 추출 AI입니다.
-
-            아래에 제시된 사용자의 요청에서 사용자가 원하는 장소의 특징을 잘 나타내는 키워드를 추출하세요.
-
-            사용자 요청:
-            {user_input}
-
-            키워드는 다음 8개의 카테고리로 분류합니다:
-
-            1. 음식/제품: 제품, 음식 키워드 혹은 해당 제품, 음식 대한 표현(예: '부드러운 고기', '싱싱한 해산물', '맛있는 커피', '삼겹살', '양고기')
-            2. 분위기/공간: 인테리어, 조명, 소음, 청결 등 (예: '조용한 분위기', '깔끔한 공간')
-            3. 서비스/직원: 직원 응대, 서비스 속도 등 (예: '친절함', '빠른 응대')
-            4. 가격/가성비: 합리적 가격, 혜택 등 (예: '가격 만족도 높음', '가성비 좋음')
-            5. 접근성/편의시설: 주차, 위치 접근성, 편의시설 등 (예: '넉넉한 주차', '역 근처 위치', '24시간', '와이파이')
-            6. 방문 목적: 추천 대상, 상황 등 (예: '데이트 추천', '혼밥 추천')
-            7. 장소 카테고리 : 장소를 분류할 수 있는 키워드(예 : '카페', '음식점')
-            8. 시간 : 시간을 분류할 수 있는 키워드(예 : '퇴근 후', '새벽 감성')
-
-            키워드 추출 조건:
-            1. 사용자 요청에 대해 카테고리별로 장소의 특징을 잘 설명하는 키워드를 추출하세요.
-            2. 형용사 키워드는 명사형 어미로 변경해서 추출하세요 (예: 친절한 → 친절함, 조용한 → 조용함).
-            3. 형용사와 명사를 활용하여 구체적인 키워드를 추출해주세요 (예. 맛있는 커피, 시원한 냉면)
-            4. 동일하거나 유사한 의미의 표현은 하나로 통일해서 중복 없이 추출하세요.
-            5. [음식점, 카페, 편의점, 영화관] 중에서만 음식/제품에 적합한 장소 카테고리 키워드를 선택
-
-            출력 형식:
-            {{
-            "음식/제품": [],
-            "분위기/공간": [],
-            "서비스/직원": [],
-            "가격/가성비": [],
-            "접근성/편의시설": [],
-            "방문 목적": [],
-            "장소 카테고리" : [],
-            "시간" : []
-            }}
-            """)
-        
-        return prompt | self.llm
     
     async def get_recommendation(self, user_input: str) -> RecommendResponse:
         """
@@ -129,17 +80,7 @@ class RecommenderService:
         try:
             # 1. 키워드 추출
             self.logger.info(f"추천 요청 : user_input = {user_input}")
-            response = await self.chain.ainvoke({"user_input": user_input})
-            keywords_str = response.content
-            
-            # JSON 문자열에서 키워드 딕셔너리 추출
-            start_idx = keywords_str.find("{")
-            end_idx = keywords_str.rfind("}") + 1
-            if start_idx == -1 or end_idx == 0:
-                raise ValueError("키워드 추출 실패: JSON 형식이 올바르지 않습니다.")
-            
-            keywords_json = keywords_str[start_idx:end_idx]
-            keywords = json.loads(keywords_json)
+            keywords = await self.keyword_extractor.extract(user_input)
             # 2. 추천 생성
             return await asyncio.to_thread(self.recommendation_engine.get_recommendations, keywords)
             
