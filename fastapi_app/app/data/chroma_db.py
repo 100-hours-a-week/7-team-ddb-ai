@@ -56,7 +56,6 @@ def make_chroma_db():
     # ✅ Chroma 저장 경로 생성
     os.makedirs(chroma_path, exist_ok=True)
     client = chromadb.PersistentClient(path=chroma_path)
-    embedding_func = ONNXEmbeddingFunction(embedding_model)
 
     # ✅ 데이터 로드
     df_place_ids = pd.read_csv(csv_path)
@@ -97,7 +96,7 @@ def make_chroma_db():
 
             for keyword in keyword_list:
                 try:
-                    vec = embedding_model.encode(keyword).tolist()
+                    vec = embedding_model.encode(keyword)
 
                     if not is_valid_embedding(vec, expected_dim=embedding_dim):
                         print(f"❌ 유효하지 않은 임베딩: {keyword}")
