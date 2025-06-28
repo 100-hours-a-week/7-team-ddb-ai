@@ -11,19 +11,16 @@ import pysqlite3
 sys.modules["sqlite3"] = pysqlite3
 import sqlite3
 
-from typing import Dict, List, Any
 import os
 import logging
 import chromadb
 import numpy as np
 
-from typing import Optional
+from typing import Optional, Dict, List, Any
+from fastapi import Depends
 
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
-from fastapi import Depends
-# from app.api.deps import get_logger_dep  # 삭제
-# from app.logging.config import get_logger  # 이미 삭제됨
 
 class PlaceStore:
     """
@@ -53,6 +50,7 @@ class PlaceStore:
         self.category_map = CATEGORY_MAP
 
         # 컬렉션 초기화
+        self.collections = {}
         self._init_collections()
     
     def _init_collections(self):
@@ -61,38 +59,20 @@ class PlaceStore:
         
         각 카테고리별로 컬렉션을 생성하고, 없는 경우 새로 생성합니다.
         """
-        try:
-            for category in self.category_map.values():
-                try:
-                    # 기존 컬렉션 확인
-                    self.client.get_collection(name=category)
-                except Exception as e:
-                    raise Exception(f"컬렉션 미존재: {str(e)}")
-        except Exception as e:
-            raise Exception(f"컬렉션 초기화 실패: {str(e)}")
-    
-    @staticmethod
-    def cosine_similarity(a: List[float], b: List[float]) -> float:
-        """
-        두 벡터 간의 코사인 유사도 계산
-        
-        Args:
-            a (List[float]): 첫 번째 벡터
-            b (List[float]): 두 번째 벡터
-            
-        Returns:
-            float: 코사인 유사도
-        """
-        a = np.array(a)
-        b = np.array(b)
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        for category in self.category_map.values():
+            try:
+                # 기존 컬렉션 확인
+                collection = self.client.get_collection(name=category)
+                self.collections[category] = collection
+            except Exception as e:
+                raise Exception(f"컬렉션 초기화 실패: {str(e)}")
     
     def search_places(
         self,
         category: str,
         keyword_vec: List[float],
         n_results: Optional[int] = 50
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """
         키워드와 유사한 장소 검색
         
@@ -109,52 +89,22 @@ class PlaceStore:
             Exception: 검색 중 오류 발생 시
         """            
         try:
-            # logger.info(f"장소 검색 시작: 카테고리={category}, 키워드={keyword}")
-            collection_name = self.category_map[category]
+            collection = self.collections.get(self.category_map[category])
+            if collection is None:
+                raise ValueError(f"컬렉션 미존재: {category}")
+    
+            results = collection.query(
+                query_embeddings=[keyword_vec],
+                n_results=n_results,
+                include=["documents", "metadatas", "distances"]
+            )
             
-            try:
-                collection = self.client.get_collection(name=collection_name)
-                # logger.info(f"컬렉션 '{collection_name}' 로드 완료")
-            except Exception as e:
-                self.logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
-                raise
-            
-            try:
-                # logger.info(f"벡터 검색 시작: n_results={n_results}")
-                results = collection.query(
-                    query_embeddings=[keyword_vec],
-                    n_results=n_results,
-                    include=["documents", "metadatas", "distances"]
-                )
-                # logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
-                # 결과 검증
-                if not results or not results.get('metadatas') or not results['metadatas'][0]:
-                    self.logger.warning("검색 결과가 없습니다.")
-                    return {
-                        'metadatas': [[]],
-                        'distances': [[]],
-                        'documents': [[]]
-                    }
+            # 결과 검증
+            if not results or not results.get('metadatas') or not results['metadatas'][0]:
+                self.logger.warning("검색 결과가 없습니다.")
+                return None
                 
-                return results, keyword_vec
-                
-            except Exception as e:
-                self.logger.error(f"벡터 검색 실패: {str(e)}")
-                raise ValueError(f"벡터 검색 실패: {str(e)}")
-            
-        except KeyError:
-            self.logger.error(f"유효하지 않은 카테고리: {category}")
-            raise ValueError(f"유효하지 않은 카테고리: {category}")
+            return results
         except Exception as e:
             self.logger.error(f"장소 검색 중 오류 발생: {str(e)}")
             raise Exception(f"장소 검색 중 오류 발생: {str(e)}")
-    
-    def close(self) -> None:
-        """
-        벡터 저장소 연결 종료
-        """
-        try:
-            # ChromaDB는 자동으로 변경사항을 저장하므로 별도의 persist 호출이 필요 없음
-            pass
-        except Exception as e:
-            raise Exception(f"벡터 저장소 종료 실패: {str(e)}") 
