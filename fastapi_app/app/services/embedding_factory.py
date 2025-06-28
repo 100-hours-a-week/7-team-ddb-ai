@@ -1,19 +1,19 @@
 import threading
 
 from app.core.config import settings
-from app.services.onnx_wrapper import ONNXSentenceTransformer
+from app.services.recommend.embedding import EmbeddingModel
 
 class EmbeddingModelFactory:
     _instance = None
     _lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls) -> ONNXSentenceTransformer:
+    def get_instance(cls) -> EmbeddingModel:
         """
         임베딩 모델의 싱글톤 인스턴스를 반환합니다.
         
         Returns:
-            ONNXSentenceTransformer: ONNX 임베딩 모델 인스턴스
+            EmbeddingModel: 임베딩 모델 인스턴스
             
         Raises:
             RuntimeError: 임베딩 모델 초기화 실패 시
@@ -22,7 +22,7 @@ class EmbeddingModelFactory:
             with cls._lock:
                 if cls._instance is None:
                     try:
-                        cls._instance = ONNXSentenceTransformer(
+                        cls._instance = EmbeddingModel(
                             settings.ONNX_MODEL_PATH,
                             settings.TOKENIZER_PATH
                         )

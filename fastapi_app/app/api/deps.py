@@ -22,6 +22,8 @@ from app.services.recommend.keyword_extractor import KeywordExtractor
 from app.services.llm_factory import LLMFactory
 from app.services.recommend.retriever import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
+from app.services.recommend.embedding import EmbeddingModel
+from app.services.embedding_factory import EmbeddingModelFactory
 from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 from app.services.moment.generator import GeneratorService
@@ -64,6 +66,21 @@ def get_keyword_extractor(
             detail=f"키워드 추출기 초기화 실패: {str(e)}"
         )
 
+def get_embedding_model() -> EmbeddingModel:
+    """
+    임베딩 모델의 싱글톤 인스턴스를 반환합니다.
+    
+    Returns:
+        SentenceTransformer: 임베딩 모델 인스턴스
+    """
+    try:
+        return EmbeddingModelFactory.get_instance()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Embedding model 초기화 실패: {str(e)}"
+        )
+
 def get_place_store() -> PlaceStore:
     try:
         return PlaceStoreFactory.get_instance()
@@ -77,6 +94,7 @@ def get_place_store() -> PlaceStore:
 # 추천 서비스 의존성
 def get_recommender(
     keyword_extractor: KeywordExtractor = Depends(get_keyword_extractor),
+    embedding_model: EmbeddingModel = Depends(get_embedding_model),
     place_store: PlaceStore = Depends(get_place_store),
     logger: logging.Logger = Depends(get_logger_dep)
 ) -> RecommenderService:
@@ -96,6 +114,7 @@ def get_recommender(
     try:
         return RecommenderService(
             keyword_extractor=keyword_extractor,
+            embedding_model=embedding_model,
             place_store=place_store
         )
     except Exception as e:

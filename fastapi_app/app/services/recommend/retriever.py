@@ -21,11 +21,9 @@ from typing import Optional
 
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
-from app.data.chroma_db import make_chroma_db
 from fastapi import Depends
 # from app.api.deps import get_logger_dep  # 삭제
 # from app.logging.config import get_logger  # 이미 삭제됨
-from app.core.embedding import get_embedding_model
 
 class PlaceStore:
     """
@@ -35,7 +33,6 @@ class PlaceStore:
     
     Attributes:
         client (chromadb.PersistentClient): ChromaDB 클라이언트
-        embedding_model (SentenceTransformer): 문장 임베딩 모델
         category_map (Dict[str, str]): 카테고리 매핑
     """
     
@@ -48,11 +45,11 @@ class PlaceStore:
         db_path = settings.VECTOR_STORE_PATH
 
         if not os.path.exists(db_path) or not os.listdir(db_path):
+            from app.data.chroma_db import make_chroma_db
             make_chroma_db()
 
         # ChromaDB 클라이언트 초기화
         self.client = chromadb.PersistentClient(path=db_path)
-        self.embedding_model = get_embedding_model()
         self.category_map = CATEGORY_MAP
 
         # 컬렉션 초기화
@@ -74,18 +71,6 @@ class PlaceStore:
         except Exception as e:
             raise Exception(f"컬렉션 초기화 실패: {str(e)}")
     
-    def encode_text(self, text: str) -> List[float]:
-        """
-        텍스트를 벡터로 인코딩
-        
-        Args:
-            text (str): 인코딩할 텍스트
-            
-        Returns:
-            List[float]: 인코딩된 벡터
-        """
-        return self.embedding_model.encode(text).tolist()
-    
     @staticmethod
     def cosine_similarity(a: List[float], b: List[float]) -> float:
         """
@@ -105,7 +90,7 @@ class PlaceStore:
     def search_places(
         self,
         category: str,
-        keyword: str,
+        keyword_vec: List[float],
         n_results: Optional[int] = 50
     ) -> Dict[str, Any]:
         """
@@ -113,7 +98,7 @@ class PlaceStore:
         
         Args:
             category (str): 검색할 카테고리
-            keyword (str): 검색 키워드
+            keyword_vec (List[float]): 검색 키워드 벡터
             n_results (int): 반환할 결과 수
             
         Returns:
@@ -133,13 +118,6 @@ class PlaceStore:
             except Exception as e:
                 self.logger.error(f"컬렉션 '{collection_name}' 로드 실패: {str(e)}")
                 raise
-
-            try:
-                keyword_vec = self.encode_text(keyword)
-                # logger.info("키워드 임베딩 완료")
-            except Exception as e:
-                self.logger.error(f"키워드 임베딩 실패: {str(e)}")
-                raise
             
             try:
                 # logger.info(f"벡터 검색 시작: n_results={n_results}")
@@ -149,7 +127,6 @@ class PlaceStore:
                     include=["documents", "metadatas", "distances"]
                 )
                 # logger.info(f"벡터 검색 완료: {len(results['metadatas'][0])}개 결과")
-                
                 # 결과 검증
                 if not results or not results.get('metadatas') or not results['metadatas'][0]:
                     self.logger.warning("검색 결과가 없습니다.")
@@ -163,7 +140,7 @@ class PlaceStore:
                 
             except Exception as e:
                 self.logger.error(f"벡터 검색 실패: {str(e)}")
-                raise
+                raise ValueError(f"벡터 검색 실패: {str(e)}")
             
         except KeyError:
             self.logger.error(f"유효하지 않은 카테고리: {category}")
