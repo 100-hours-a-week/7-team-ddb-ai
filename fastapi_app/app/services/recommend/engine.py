@@ -70,8 +70,8 @@ class RecommendationEngine:
             for category, keyword_vec in zip(categories, keyword_vecs):
                 try:
                     # 장소 검색
-                    results, keyword_emb = self.place_store.search_places(category, keyword_vec)
-                    if not results or not results.get('metadatas') or not results['metadatas'][0]:
+                    results = self.place_store.search_places(category, keyword_vec)
+                    if results is None:
                         continue
                         
                     # 유사도 계산 및 점수 누적
