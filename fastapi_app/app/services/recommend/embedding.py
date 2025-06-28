@@ -3,9 +3,8 @@ import onnxruntime as ort
 
 from typing import List, Union
 from transformers import AutoTokenizer
-from chromadb.utils.embedding_functions import EmbeddingFunction
 
-class ONNXSentenceTransformer:
+class EmbeddingModel:
     def __init__(self, onnx_model_path: str, tokenizer_path: str, max_length: int = 64):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.session = ort.InferenceSession(onnx_model_path, providers=["CPUExecutionProvider"])
@@ -54,12 +53,4 @@ class ONNXSentenceTransformer:
             output = self.session.run([self.output_name], input_feed)[0]
             pooled = self._postprocess(output)
             embeddings.append(pooled)
-        return np.vstack(embeddings)
-
-class ONNXEmbeddingFunction(EmbeddingFunction):
-    def __init__(self, model: ONNXSentenceTransformer):
-        self.model = model
-
-    def __call__(self, input: List[str]) -> List[List[float]]:
-        embeddings = self.model.encode(input)
-        return embeddings.tolist()
+        return np.vstack(embeddings).tolist()

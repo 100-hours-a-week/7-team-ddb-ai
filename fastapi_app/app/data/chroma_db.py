@@ -10,8 +10,7 @@ import pandas as pd
 
 from app.core.config import settings
 from app.core.constants import CATEGORY_MAP
-from app.core.embedding import get_embedding_model
-from app.services.onnx_wrapper import ONNXEmbeddingFunction
+from app.api.deps import get_embedding_model
 
 def is_valid_embedding(vec, expected_dim=768):
     if not isinstance(vec, list):
@@ -93,7 +92,6 @@ def make_chroma_db():
 
                 collection = client.create_collection(
                     name=collection_name,
-                    embedding_function=embedding_func,
                     metadata=metadata
                 )
 

@@ -17,6 +17,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.services.recommend.retriever import PlaceStore
 from app.schemas.recommend_schema import RecommendResponse
+from app.services.recommend.embedding import EmbeddingModel
 from app.services.recommend.engine import RecommendationEngine
 from app.services.recommend.keyword_extractor import KeywordExtractor
 from app.logging.di import get_logger_dep
@@ -38,6 +39,7 @@ class RecommenderService:
     def __init__(
         self,
         keyword_extractor: KeywordExtractor,
+        embedding_model: EmbeddingModel,
         place_store: PlaceStore,
         metrics=None,
         logger=None
@@ -51,6 +53,7 @@ class RecommenderService:
             metrics (RecommendMetrics): Prometheus 메트릭 객체
         """
         self.keyword_extractor = keyword_extractor
+        self.embedding_model = embedding_model
         self.recommendation_engine = RecommendationEngine(place_store)
         self.metrics = metrics  # DI로 주입받은 메트릭 객체 저장
         if logger is None:
@@ -80,10 +83,19 @@ class RecommenderService:
         try:
             # 1. 키워드 추출
             self.logger.info(f"추천 요청 : user_input = {user_input}")
-            keywords = await self.keyword_extractor.extract(user_input)
-            # 2. 추천 생성
-            return await asyncio.to_thread(self.recommendation_engine.get_recommendations, keywords)
-            
+            parsed, categories, keywords, place_category = await self.keyword_extractor.extract(user_input)
+
+            # 추출 키워드가 없을 시 장소 카테고리만 반환
+            if categories == None and keywords == None:
+                return RecommendResponse(recommendations=[], place_category=place_category)
+            # 추출 키워드가 있을 시 추천 시작
+            else:
+                # 2. 키워드 임베딩
+                keywords_vec = await asyncio.to_thread(self.embedding_model.encode, keywords)
+                # 3. 장소 추천 시작
+                self.logger.info(f"추천 시작 : 키워드={parsed}")
+                return await asyncio.to_thread(self.recommendation_engine.get_recommendations, categories, keywords_vec, place_category)
+                
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")
         finally:
