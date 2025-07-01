@@ -8,8 +8,8 @@ pipeline {
         GAR_HOST        = 'asia-northeast3-docker.pkg.dev'
         CONTAINER_NAME  = 'ai'
         PORT            = '8000'
-        SSH_KEY_PATH    = '/var/jenkins_home/.ssh/id_rsa'
         SSH_USER        = 'peter'
+        AI_ZONE          = 'asia-northeast3-a'  
     }
 
     stages {
@@ -20,12 +20,12 @@ pipeline {
                     env.BRANCH = branchName
 
                     if (branchName == 'main') {
-                        properties([pipelineTriggers([cron('00 0 * * 1-5')])])
+                        properties([pipelineTriggers([cron('30 0 * * 1-5')])])
                     } else if (branchName == 'dev') {
                         properties([pipelineTriggers([
-                            cron('00 3 * * 1-4'),
-                            cron('00 23 * * 4'),
-                            cron('00 3 * * 6,7')
+                            cron('30 3 * * 1-4'),
+                            cron('00 00 * * 5'),
+                            cron('30 3 * * 6,7')
                         ])])
                     } else {
                         properties([pipelineTriggers([])])
@@ -47,54 +47,17 @@ pipeline {
             steps {
                 script {
                     if (env.BRANCH == 'main') {
-                        env.AI_PRIVATE_IP = '10.10.40.2'
                         env.ENV_LABEL = 'prod'
                         env.REPO_NAME = 'dolpin-docker-image-prod'
+                        env.AI_INSTANCE_NAME = 'ai-instance-prod'        
                     } else {
-                        env.AI_PRIVATE_IP = '10.20.40.2'
                         env.ENV_LABEL = 'dev'
                         env.REPO_NAME = 'dolpin-docker-image-dev'
+                        env.AI_INSTANCE_NAME = 'ai-instance-dev' 
                     }
 
                     env.TAG = "${env.SERVICE_NAME}:${env.BUILD_NUMBER}"
                     env.GAR_IMAGE = "${env.GAR_HOST}/${env.PROJECT_ID}/${env.REPO_NAME}/${env.TAG}"
-                }
-            }
-        }
-
-        stage('Check Infrastructure Availability') {
-            steps {
-                script {
-                    def sshStatus = sh(
-                        script: """
-                        ssh -i ${env.SSH_KEY_PATH} \
-                            -o BatchMode=yes \
-                            -o ConnectTimeout=15 \
-                            -o StrictHostKeyChecking=no \
-                            ${env.SSH_USER}@${env.AI_PRIVATE_IP} 'echo connected' >/dev/null 2>&1
-                        """,
-                        returnStatus: true
-                    )
-
-                    if (sshStatus != 0) {
-                        withCredentials([string(credentialsId: 'Discord-Webhook', variable: 'DISCORD')]) {
-                            discordSend(
-                                description: """
-                                ${env.SERVICE_NAME} - ${env.BRANCH} 브랜치 배포 중단됨
-                                이유: SSH 연결 실패 - ${env.AI_PRIVATE_IP}
-                                빌드 URL: ${env.BUILD_URL}
-                                """,
-                                link: env.BUILD_URL,
-                                result: 'FAILURE',
-                                title: "${env.JOB_NAME} : ${currentBuild.displayName} 실패 - 인프라 미구성",
-                                webhookURL: "$DISCORD"
-                            )
-                        }
-                        currentBuild.result = 'ABORTED'
-                        error("SSH connection failed. Infra not ready.")
-                    } else {
-                        echo "SSH 연결 성공: 인프라 확인 완료."
-                    }
                 }
             }
         }
@@ -121,25 +84,22 @@ pipeline {
             steps {
                 dir('fastapi_app') {
                     script {
-                        sh """
-                        gcloud secrets versions access latest \
-                        --secret="jenkins-sa-key-shared" \
-                        --project="${env.PROJECT_ID}" > jenkins-gcp-key.json
-                        """
+                        withCredentials([
+                            file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY_FILE')
+                        ]) {
+                            sh """
+                            gcloud auth activate-service-account --key-file=${GCP_KEY_FILE}
+                            gcloud config set project ${env.PROJECT_ID}
 
-                        sh """
-                        gcloud auth activate-service-account --key-file=jenkins-gcp-key.json
-                        gcloud config set project ${env.PROJECT_ID}
-
-                        mkdir -p model
-                        gsutil -m cp -r gs://static-backup-bucket/embedding_model/krsbert_tokenizer model/
-                        gsutil -m cp gs://static-backup-bucket/embedding_model/snunlp_KR-SBERT-V40K-klueNLI-* model/
-                        """
+                            mkdir -p model
+                            gsutil -m cp -r gs://static-backup-bucket/embedding_model/krsbert_tokenizer model/
+                            gsutil -m cp gs://static-backup-bucket/embedding_model/snunlp_KR-SBERT-V40K-klueNLI-* model/
+                            """
+                        }
                     }
                 }
             }
         }
-
 
         stage('GAR 인증') {
             steps {
@@ -158,10 +118,9 @@ pipeline {
             }
         }
 
-        stage('Deploy to AI via SSH') {
+        stage('Deploy to AI via IAP') {
             steps {
                 script {
-
                     def credId = env.BRANCH == 'main' ? 'ai-sa-key-prod' : 'ai-sa-key-dev'
                     def envFileId = env.BRANCH == 'main' ? 'ai-prod-file' : 'ai-dev-file'
 
@@ -175,7 +134,6 @@ pipeline {
                     withCredentials([
                         file(credentialsId: envFileId, variable: 'ENV_FILE'),
                     ]) {
-
                         def deployScript = """
 #!/bin/bash
 set -e
@@ -199,21 +157,25 @@ docker pull ${env.GAR_IMAGE}
 
 docker run -d --name ${env.CONTAINER_NAME} \\
   --env-file /home/${env.SSH_USER}/.env \\
-  -v /home/${env.SSH_USER}/logs:/app/logs \
+  -v /home/${env.SSH_USER}/logs:/app/logs \\
   -p ${env.PORT}:${env.PORT} \\
   ${env.GAR_IMAGE}
 """
-                // Jenkins 워크스페이스에 배포 스크립트 파일 저장
-                writeFile file: 'deploy.sh', text: deployScript
+                        writeFile file: 'deploy.sh', text: deployScript
 
-                // 키와 스크립트 전송 후 실행
-                sh """
-chmod 600 ${env.SSH_KEY_PATH}
-scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no \$ENV_FILE ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/.env
-scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no gcp-key.json ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/gcp-key.json
-scp -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no deploy.sh ${env.SSH_USER}@${env.AI_PRIVATE_IP}:/tmp/deploy.sh
+                        sh """
+gcloud compute scp \$ENV_FILE ${env.SSH_USER}@${env.AI_INSTANCE_NAME}:/tmp/.env \
+  --project=${env.PROJECT_ID} --zone=${env.AI_ZONE} --tunnel-through-iap
 
-ssh -tt -i ${env.SSH_KEY_PATH} -o StrictHostKeyChecking=no ${env.SSH_USER}@${env.AI_PRIVATE_IP} "bash /tmp/deploy.sh"
+gcloud compute scp gcp-key.json ${env.SSH_USER}@${env.AI_INSTANCE_NAME}:/tmp/gcp-key.json \
+  --project=${env.PROJECT_ID} --zone=${env.AI_ZONE} --tunnel-through-iap
+
+gcloud compute scp deploy.sh ${env.SSH_USER}@${env.AI_INSTANCE_NAME}:/tmp/deploy.sh \
+  --project=${env.PROJECT_ID} --zone=${env.AI_ZONE} --tunnel-through-iap
+
+gcloud compute ssh ${env.SSH_USER}@${env.AI_INSTANCE_NAME} \
+  --project=${env.PROJECT_ID} --zone=${env.AI_ZONE} \
+  --tunnel-through-iap --command="bash /tmp/deploy.sh"
 """
                     }
                 }
