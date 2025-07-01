@@ -40,7 +40,7 @@ class RecommenderService:
         self,
         keyword_extractor: KeywordExtractor,
         embedding_model: EmbeddingModel,
-        place_store: PlaceStore,
+        recommendation_engine: RecommendationEngine,
         metrics=None,
         logger=None
     ):
@@ -54,7 +54,7 @@ class RecommenderService:
         """
         self.keyword_extractor = keyword_extractor
         self.embedding_model = embedding_model
-        self.recommendation_engine = RecommendationEngine(place_store)
+        self.recommendation_engine = recommendation_engine
         self.metrics = metrics  # DI로 주입받은 메트릭 객체 저장
         if logger is None:
             logger = get_logger_dep()
@@ -94,7 +94,7 @@ class RecommenderService:
                 keywords_vec = await asyncio.to_thread(self.embedding_model.encode, keywords)
                 # 3. 장소 추천 시작
                 self.logger.info(f"추천 시작 : 키워드={parsed}")
-                return await asyncio.to_thread(self.recommendation_engine.get_recommendations, categories, keywords_vec, place_category)
+                return await self.recommendation_engine.get_recommendations(categories, keywords_vec, place_category)
                 
         except Exception as e:
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}")

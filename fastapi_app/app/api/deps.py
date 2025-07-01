@@ -24,6 +24,7 @@ from app.services.recommend.retriever import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
 from app.services.recommend.embedding import EmbeddingModel
 from app.services.embedding_factory import EmbeddingModelFactory
+from app.services.recommend.engine import RecommendationEngine
 from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 from app.services.moment.generator import GeneratorService
@@ -90,12 +91,24 @@ def get_place_store() -> PlaceStore:
             detail=f"PlaceStore 로딩 실패: {str(e)}"
         )
 
+def get_recommendation_engine(
+        place_store: PlaceStore = Depends(get_place_store)
+) -> RecommendationEngine:
+    try:
+        return RecommendationEngine(
+            place_store=place_store
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"RecommendationEngine 초기화 실패: {str(e)}"
+        )
 
 # 추천 서비스 의존성
 def get_recommender(
     keyword_extractor: KeywordExtractor = Depends(get_keyword_extractor),
     embedding_model: EmbeddingModel = Depends(get_embedding_model),
-    place_store: PlaceStore = Depends(get_place_store),
+    recommendation_engine: RecommendationEngine = Depends(get_recommendation_engine),
     logger: logging.Logger = Depends(get_logger_dep)
 ) -> RecommenderService:
     """
@@ -115,7 +128,7 @@ def get_recommender(
         return RecommenderService(
             keyword_extractor=keyword_extractor,
             embedding_model=embedding_model,
-            place_store=place_store
+            recommendation_engine=recommendation_engine
         )
     except Exception as e:
         logger.error(f"추천 서비스 초기화 실패: {str(e)}")

@@ -6,11 +6,13 @@
     - RecommendationEngine: 추천 엔진 클래스
 """
 
-import math
-from app.logging.config import get_logger
+import asyncio
+import numpy as np
+import pandas as pd
 
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from collections import defaultdict
+from app.logging.config import get_logger
 from app.services.recommend.retriever import PlaceStore
 from app.schemas.recommend_schema import Recommendation, RecommendResponse
 
@@ -37,11 +39,11 @@ class RecommendationEngine:
             logger = get_logger_dep()
         self.logger = logger
     
-    def get_recommendations(
+    async def get_recommendations(
         self,
         categories: Optional[List[str]],
-        keyword_vecs: Optional[List[str]],
-        place_category: Optional[List[str]]
+        keyword_vecs: Optional[List[float]],
+        place_category: Optional[str]
     ) -> RecommendResponse:
         """
         키워드 기반 장소 추천
@@ -57,78 +59,119 @@ class RecommendationEngine:
             Exception: 추천 생성 중 오류 발생 시
         """
         try:
-            category_place_max_scores = defaultdict(lambda: defaultdict(lambda: {'score': 0.0, 'keyword': None}))
-            
-            # 전체 키워드 수를 고려한 카테고리 가중치 설정
-            total_keywords_num = len(keyword_vecs)
-            has_food_keywords = bool("음식/제품" in categories)
+            keyword_weight, place_threshold = self._calculate_weight_threshold(categories)
+            place_scores = await self._calculate_place_scores(categories, keyword_vecs, keyword_weight)
+            filtered_df = self._filter_and_sort(place_scores, place_threshold)
 
-            # 최종 추천 장소 유사도 임계치 설정
-            SIMILARITY_THRESHOLD = total_keywords_num * 0.8
-
-            # 각 카테고리별로 처리
-            for category, keyword_vec in zip(categories, keyword_vecs):
-                try:
-                    # 장소 검색
-                    results = self.place_store.search_places(category, keyword_vec)
-                    if results is None:
-                        continue
-                        
-                    # 유사도 계산 및 점수 누적
-                    for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
-                        if meta is None:
-                            continue
-                        if dist is None or (isinstance(dist, float) and math.isnan(dist)):
-                            continue
-                        pid = meta.get("place_id")
-                        if not pid:
-                            continue
-                        sim = 1 - dist
-                        current_max = category_place_max_scores[category][pid]['score']
-
-                        if sim > current_max:
-                            category_place_max_scores[category][pid] = {
-                                'score': sim,
-                                'keyword': meta.get("keyword")
-                            }
-                except Exception as e:
-                    self.logger.error(f"키워드 처리 중 오류 발생: {str(e)}")
-                    continue
-            
-            final_scores = defaultdict(float)
-            pid_keyword_map = defaultdict(list)
-            for category, place_dict in category_place_max_scores.items():
-                for pid, info in place_dict.items():
-                    score = info['score']
-                    keyword = info['keyword']
-
-                    if category == "음식/제품":
-                        score *= total_keywords_num
-                    final_scores[pid] += score
-
-                    if keyword and keyword not in pid_keyword_map[pid]:
-                        pid_keyword_map[pid].append(keyword)
-
-            if not final_scores:
-                return RecommendResponse(recommendations=[], place_category=place_category)
-            
-            # 필터링 및 정렬
-            filtered_scores = {pid: score for pid, score in final_scores.items() if score >= SIMILARITY_THRESHOLD}
-            sorted_places = sorted(filtered_scores.items(), key=lambda x: x[1], reverse=True)
-
-            # self.logger.info(f"최종 추천 장소: {sorted_places}")
-            
             recommendations = [
                 Recommendation(
-                    id=pid,
-                    similarity_score=score,
-                    keyword=pid_keyword_map[pid]
+                    id=row.place_id,
+                    similarity_score=row.total_score,
+                    keyword=row.keywords,
                 )
-                for pid, score in sorted_places
+                for _, row in filtered_df.iterrows()
             ]
-            
-            return RecommendResponse(recommendations=recommendations, place_category=place_category)
-            
+
+            return RecommendResponse(
+                recommendations=recommendations,
+                place_category=place_category,
+            )
+        
         except Exception as e:
             self.logger.error(f"추천 생성 중 오류 발생: {str(e)}")
             raise Exception(f"추천 생성 중 오류 발생: {str(e)}") 
+
+    @staticmethod
+    def _calculate_weight_threshold(categories: List[str]) -> Tuple[float, float]:
+        """
+        키워드 비율에 따른 음식/제품 키워드 가중치, 추천 장소 임계값 계산
+        """
+        total = len(categories)
+
+        food_product_count = categories.count("음식/제품")
+        keyword_weight = total - food_product_count + 1
+
+        place_threshold = ((food_product_count *  keyword_weight) + (total - food_product_count)) * 0.7
+
+        return keyword_weight, place_threshold
+
+    async def _calculate_place_scores(
+        self,
+        categories: List[str],
+        keyword_vecs: List[float],
+        keyword_weight: float
+    ) -> dict[int, dict[str, object]]:
+        """
+        장소 별 가장 유사한 키워드들의 유사도 누적
+        """
+        place_scores = defaultdict(lambda: {"total_score": 0.0, "keywords": set()})
+
+        for category, keyword_vec in zip(categories, keyword_vecs):
+            try:
+                results = await asyncio.to_thread(self.place_store.search_places, category, keyword_vec)
+                if not results:
+                    continue
+
+                self._best_place_scores(results, category, place_scores, keyword_weight)
+
+            except Exception as e:  # pragma: no cover
+                self.logger.error("카테고리 %s 처리 중 오류: %s", category, e, exc_info=True)
+
+        return place_scores
+
+    def _best_place_scores(
+        self,
+        results: dict,
+        category: str,
+        place_scores: dict[int, dict[str, object]],
+        keyword_weight: float
+    ):
+        """
+        검색된 유사 키워드에서 장소 중복을 제거하여 한 장소 별 가장 유사한 키워드만 필터링
+        """
+        metas = results["metadatas"][0]
+        scores = self._convert_distance_to_score(np.array(results["distances"][0]), category, keyword_weight)
+
+        best_scores = {}
+        for meta, score in zip(metas, scores):
+            pid = meta.get("place_id")
+            kw = meta.get("keyword")
+            if pid is None:
+                continue
+            # 한 장소-한 키워드 최고 점수만 유지
+            if pid not in best_scores or best_scores[pid]["score"] < score:
+                best_scores[pid] = {"score": score, "keyword": kw}
+
+        # 점수 누적
+        for pid, info in best_scores.items():
+            place_scores[pid]["total_score"] += info["score"]
+            place_scores[pid]["keywords"].add(info["keyword"])
+
+    @staticmethod
+    def _convert_distance_to_score(distances: np.ndarray, category: str, keyword_weight: float) -> np.ndarray:
+        """
+        거리 → 유사도 점수 변환 (카테고리 가중치 포함)
+        """
+        scores = 1.0 - distances
+        if category == "음식/제품":  # 가중치 부여
+            scores *= keyword_weight
+        return scores
+
+    def _filter_and_sort(
+        self,
+        place_scores: dict[int, dict[str, object]],
+        place_threshold: float
+    ) -> pd.DataFrame:
+        """
+        내부 임계값 기준 필터링 후 점수 내림차순 정렬
+        """
+        df = pd.DataFrame(
+            {
+                "place_id": pid,
+                "total_score": data["total_score"],
+                "keywords": list(data["keywords"]),
+            }
+            for pid, data in place_scores.items()
+        )
+
+        return df[df["total_score"] >= place_threshold].sort_values("total_score", ascending=False)
