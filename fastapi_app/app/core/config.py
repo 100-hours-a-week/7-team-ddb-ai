@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # ONNX 임베딩 모델 설정
     ONNX_MODEL_PATH: str = os.getenv("ONNX_MODEL_PATH", "app/model/snunlp_KR-SBERT-V40K-klueNLI-augSTS_quant.onnx")
     TOKENIZER_PATH: str = os.getenv("TOKENIZER_PATH", "app/model/krsbert_tokenizer")
+
+    # 카카오 API 설정
+    KAKAO_API_KEY: str = os.getenv("KAKAO_API_KEY")
     
     # TODO: 추후 구현 예정
     # # Redis 설정
@@ -64,6 +67,9 @@ class Settings(BaseSettings):
         # 필수 설정 값 검증
         if not self.GOOGLE_API_KEY:
             raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
+        
+        if not self.KAKAO_API_KEY:
+            raise ValueError("KAKAO_API_KEY 설정되지 않았습니다.")
         
         # 벡터 저장소 디렉토리 생성
         os.makedirs(self.VECTOR_STORE_PATH, exist_ok=True)
