@@ -91,7 +91,7 @@ def crawl_place_table(place_id: int, soup: BeautifulSoup, KAKAO_API_KEY: str) ->
     # --------------------- 결과 리턴 ---------------------
     place_table = {
         "id": place_id,
-        "place_category": None,
+        "category": None,
         "location": location,
         "description": None,
         "image_url": image_url,

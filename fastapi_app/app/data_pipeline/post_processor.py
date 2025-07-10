@@ -102,7 +102,7 @@ def post_processing(place_table, place_menu_table, place_facilities, place_revie
     if not place_table.empty:
         place_table.at[0, "description"] = description
         if "장소 카테고리" in keywords and keywords["장소 카테고리"]:
-            place_table.at[0, "place_category"] = keywords["장소 카테고리"][0]
+            place_table.at[0, "category"] = keywords["장소 카테고리"][0]
 
     if not place_menu_table.empty:
         keywords["음식/제품"].extend(place_menu_table['menu_name'].values)
