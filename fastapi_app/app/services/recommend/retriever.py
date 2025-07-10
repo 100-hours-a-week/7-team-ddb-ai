@@ -41,9 +41,9 @@ class PlaceStore:
         self.logger = logger
         db_path = settings.VECTOR_STORE_PATH
 
-        if not os.path.exists(db_path) or not os.listdir(db_path):
-            from app.data.chroma_db import make_chroma_db
-            make_chroma_db()
+        # if not os.path.exists(db_path) or not os.listdir(db_path):
+        #     from app.data.chroma_db import make_chroma_db
+        #     make_chroma_db()
 
         # ChromaDB 클라이언트 초기화
         self.client = chromadb.PersistentClient(path=db_path)

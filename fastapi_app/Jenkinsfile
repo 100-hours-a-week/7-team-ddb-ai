@@ -101,6 +101,30 @@ pipeline {
             }
         }
 
+        stage('Download ChromaDB from GCS') {
+            steps {
+                dir('fastapi_app') {
+                    script {
+                        withCredentials([
+                            file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY_FILE')
+                        ]) {
+                            sh """
+                            gcloud auth activate-service-account --key-file=${GCP_KEY_FILE}
+                            gcloud config set project ${env.PROJECT_ID}
+
+                            cd app/data
+                            gsutil cp gs://static-backup-bucket/vector_store/chroma_db_keyword.zip .
+
+                            unzip -o chroma_db_keyword.zip -d .
+                            rm chroma_db_keyword.zip
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+
         stage('GAR 인증') {
             steps {
                 sh "gcloud auth configure-docker ${env.GAR_HOST} --quiet"
