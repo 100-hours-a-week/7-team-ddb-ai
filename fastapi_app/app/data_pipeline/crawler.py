@@ -66,7 +66,8 @@ def crawl_place_table(place_id: int, soup: BeautifulSoup, KAKAO_API_KEY: str) ->
     location = f"SRID=4326;POINT({lon} {lat})" if lon and lat else ""
 
     # --------------------- 이미지 ---------------------
-    image_url = None
+    temp_image_path = settings.TEMP_IMAGE_PATH
+    s3_image_path = settings.S3_IMAGE_PATH
     try:
         first_img = soup.select_one("div.board_photo img")
         if first_img and first_img.get("src"):
@@ -76,11 +77,11 @@ def crawl_place_table(place_id: int, soup: BeautifulSoup, KAKAO_API_KEY: str) ->
 
             r = requests.get(src, stream=True)
             r.raise_for_status()
-            with open(f"test_photo/{place_id}.jpg", "wb") as f:
+            with open(f"{temp_image_path}/{place_id}.jpg", "wb") as f:
                 for chunk in r.iter_content(1024):
                     f.write(chunk)
 
-            image_url = f"test_photo/{place_id}.jpg"
+            image_url = f"{s3_image_path}/{place_id}.jpg"
 
     except Exception as e:
         print(f"[WARN] 이미지 저장 실패: {e}")

@@ -14,3 +14,4 @@ pandas==2.2.3
 prometheus_client
 beautifulsoup4
 selenium
+boto3

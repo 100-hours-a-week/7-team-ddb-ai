@@ -28,6 +28,7 @@ from app.services.recommend.engine import RecommendationEngine
 from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 from app.services.moment.generator import GeneratorService
+from app.data_pipeline.pipeline import UploaderPipeline
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator
@@ -170,6 +171,22 @@ def get_moment_generator(
             detail=f"게시글 생성 서비스 초기화 실패: {str(e)}"
         )
 
+# 데이터 업로더 의존성
+def get_data_uploader(
+    embedding_model: EmbeddingModel = Depends(get_embedding_model),
+    logger: logging.Logger = Depends(get_logger_dep)
+) -> UploaderPipeline:
+    try:
+        return UploaderPipeline(
+            embedding_model=embedding_model
+        )
+    except Exception as e:
+        logger.error(f"데이터 업로더 초기화 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"데이터 업로더 초기화 실패: {str(e)}"
+        )
+    
 # TODO: 추후 구현 예정
 # # 로깅 의존성
 # def get_logger_dep() -> logging.Logger:
