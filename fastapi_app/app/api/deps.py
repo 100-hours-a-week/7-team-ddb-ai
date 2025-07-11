@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.services.recommend.service import RecommenderService
 from app.services.recommend.keyword_extractor import KeywordExtractor
 from app.services.llm_factory import LLMFactory
+from app.services.clovax_factory import ClovaXFactory
 from app.services.recommend.retriever import PlaceStore
 from app.services.place_store_factory import PlaceStoreFactory
 from app.services.recommend.embedding import EmbeddingModel
@@ -47,7 +48,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
         HTTPException: LLM 초기화 실패 시
     """
     try:
-        return LLMFactory.get_instance()
+        return ClovaXFactory.get_instance() # LLMFactory.get_instance() 사용 시 gemini 모델 사용
     except Exception as e:
         raise HTTPException(
             status_code=500,
