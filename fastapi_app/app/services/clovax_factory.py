@@ -1,6 +1,6 @@
 import threading
 from transformers import AutoTokenizer, pipeline, AutoModelForCausalLM
-from langchain.llms import HuggingFacePipeline
+from langchain_community.llms import HuggingFacePipeline
 from app.core.config import settings
 
 class ClovaXFactory:
