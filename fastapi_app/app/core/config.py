@@ -33,6 +33,9 @@ class Settings(BaseSettings):
         REDIS_URL (str): Redis 연결 URL
         LOG_LEVEL (str): 로깅 레벨
     """
+
+    # CLOVAX 설정
+    CLOVAX_MODEL_NAME: str = os.getenv("CLOVAX_MODEL_NAME", "chanhue/dolpin-hyperclova-lora")
     
     # LLM 설정
     MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini-2.0-flash-lite")
