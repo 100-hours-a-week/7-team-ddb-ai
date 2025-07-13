@@ -13,6 +13,7 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+from huggingface_hub import login
 
 # .env 파일 로드
 load_dotenv()
@@ -96,6 +97,10 @@ class Settings(BaseSettings):
         
         # 벡터 저장소 디렉토리 생성
         os.makedirs(self.VECTOR_STORE_PATH, exist_ok=True)
+
+HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+if HF_TOKEN:
+    login(token=HF_TOKEN)
 
 # 전역 설정 인스턴스 생성
 settings = Settings()
