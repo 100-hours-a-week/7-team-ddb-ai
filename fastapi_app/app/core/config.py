@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     # # 로깅 설정
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
+    HUGGINGFACE_TOKEN: str = os.getenv("HUGGINGFACE_TOKEN", "")
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
