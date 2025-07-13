@@ -2,6 +2,7 @@ import threading
 from transformers import AutoTokenizer, pipeline, AutoModelForCausalLM
 from langchain_community.llms import HuggingFacePipeline
 from app.core.config import settings
+from peft import PeftModel
 
 class ClovaXFactory:
     _instance = None
@@ -11,7 +12,8 @@ class ClovaXFactory:
     def _create_instance(cls):
         model_id = settings.CLOVAX_MODEL_NAME  # 예: "chanhue/dolpin-hyperclova-lora"
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModelForCausalLM.from_pretrained(model_id)
+        base_model = AutoModelForCausalLM.from_pretrained("naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B")
+        model = PeftModel.from_pretrained(base_model, model_id)
         hf_pipe = pipeline(
             "text-generation",
             model=model,
