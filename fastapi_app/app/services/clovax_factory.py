@@ -12,7 +12,11 @@ class ClovaXFactory:
     def _create_instance(cls):
         model_id = settings.CLOVAX_MODEL_NAME  # 예: "chanhue/dolpin-hyperclova-lora"
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        base_model = AutoModelForCausalLM.from_pretrained("naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B")
+        base_model = AutoModelForCausalLM.from_pretrained(
+            "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B",
+            device_map="auto",
+            torch_dtype="float16"
+        )
         model = PeftModel.from_pretrained(base_model, model_id)
         hf_pipe = pipeline(
             "text-generation",
