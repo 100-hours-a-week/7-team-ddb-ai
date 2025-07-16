@@ -1,7 +1,19 @@
 import json
+import re
 
 from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+
+def extract_final_json(text: str):
+    # 모든 JSON 블록 (```json 포함 or { ... }) 추출
+    json_blocks = re.findall(r"```json\s*({[\s\S]*?})\s*```", text)  # ```json 블록
+    if not json_blocks:
+        json_blocks = re.findall(r"({[\s\S]*?})", text)  # 중괄호 블록만
+
+    if not json_blocks:
+        return text.strip()
+    return json_blocks[-1].strip()
 
 class KeywordExtractor:
     def __init__(self, llm: ChatGoogleGenerativeAI):
