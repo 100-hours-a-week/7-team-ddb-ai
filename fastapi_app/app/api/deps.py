@@ -48,7 +48,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
         HTTPException: LLM 초기화 실패 시
     """
     try:
-        return ClovaXFactory.get_instance() # LLMFactory.get_instance() 사용 시 gemini 모델 사용
+        return LLMFactory.get_instance() # LLMFactory.get_instance() 사용 시 gemini 모델 사용
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -188,6 +188,55 @@ def get_data_uploader(
             detail=f"데이터 업로더 초기화 실패: {str(e)}"
         )
     
+# ClovaX 추천을 위한 LLM 의존성
+def get_clovax_llm():
+    try:
+        from app.services.clovax_factory import ClovaXFactory
+        return ClovaXFactory.get_instance()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"ClovaX 초기화 실패: {str(e)}"
+        )
+
+def get_clovax_keyword_extractor(
+    llm = Depends(get_clovax_llm)
+) -> ClovaXKeywordExtractor:
+    try:
+        from app.services.recommend.keyword_extractor import ClovaXKeywordExtractor
+        return ClovaXKeywordExtractor(
+            llm=llm
+        )
+    except Exception as e:
+        logger.error(f"ClovaX KeywordExtractor 초기화 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"ClovaX KeywordExtractor 초기화 실패: {str(e)}"
+        )
+
+def get_clovax_recommender(
+    keyword_extractor = Depends(get_clovax_keyword_extractor),
+    embedding_model: EmbeddingModel = Depends(get_embedding_model),
+    recommendation_engine: RecommendationEngine = Depends(get_recommendation_engine),
+    logger: logging.Logger = Depends(get_logger_dep)
+) -> RecommenderService:
+    """
+    ClovaX 기반 추천 서비스 의존성
+    """
+    try:
+        return RecommenderService(
+            keyword_extractor=keyword_extractor,
+            embedding_model=embedding_model,
+            recommendation_engine=recommendation_engine
+        )
+    except Exception as e:
+        logger.error(f"ClovaX 추천 서비스 초기화 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"ClovaX 추천 서비스 초기화 실패: {str(e)}"
+        )
+
+
 # TODO: 추후 구현 예정
 # # 로깅 의존성
 # def get_logger_dep() -> logging.Logger:
