@@ -11,7 +11,7 @@ FastAPI를 사용하여 HTTP 요청을 처리하고 추천 서비스와 연동�
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from app.services.recommend.service import RecommenderService
 from app.schemas.recommend_schema import RecommendResponse
-from app.api.deps import get_recommender, get_recommend_metrics  # 추천 API 메트릭 의존성 함수 임포트
+from app.api.deps import get_recommender, get_recommend_metrics, get_clovax_recommender  # 추천 API 메트릭 의존성 함수 임포트
 
 router = APIRouter()
 

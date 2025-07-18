@@ -30,6 +30,8 @@ from app.logging.di import get_logger_dep
 from monitoring.metrics import metrics as recommend_metrics  # 추천 API 메트릭 싱글턴 인스턴스 임포트
 from app.services.moment.generator import GeneratorService
 from app.data_pipeline.pipeline import UploaderPipeline
+from app.services.recommend.keyword_extractor import ClovaXKeywordExtractor
+
 # TODO: 추후 구현 예정
 # import logging
 # from typing import Generator
@@ -203,7 +205,6 @@ def get_clovax_keyword_extractor(
     llm = Depends(get_clovax_llm)
 ) -> ClovaXKeywordExtractor:
     try:
-        from app.services.recommend.keyword_extractor import ClovaXKeywordExtractor
         return ClovaXKeywordExtractor(
             llm=llm
         )
