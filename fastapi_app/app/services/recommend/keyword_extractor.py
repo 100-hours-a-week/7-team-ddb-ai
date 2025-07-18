@@ -95,6 +95,7 @@ class ClovaXKeywordExtractor:
         self.llm = llm
         self.chain = self._create_chain()
 
+    @staticmethod
     def extract_final_json(text: str):
         # 모든 JSON 블록 (```json 포함 or { ... }) 추출
         json_blocks = re.findall(r"```json\s*({[\s\S]*?})\s*```", text)  # ```json 블록
@@ -104,6 +105,31 @@ class ClovaXKeywordExtractor:
         if not json_blocks:
             return text.strip()
         return json_blocks[-1].strip()
+    
+    @staticmethod
+    def parse_response(raw: str):
+        import json
+        start, end = raw.find("{"), raw.rfind("}") + 1
+        if start == -1 or end == 0:
+            raise ValueError("키워드 추출 실패: JSON 형식이 올바르지 않습니다.")
+        parsed = json.loads(raw[start:end])
+
+        categories = None
+        keywords = None
+        place_category = None
+
+        for category, kw_list in parsed.items():
+            if not kw_list:
+                continue
+            elif category == '장소 카테고리':
+                place_category = kw_list[0]
+                continue
+            for keyword in kw_list:
+                if categories == None and keywords == None:
+                    categories, keywords = [], []
+                categories.append(category)
+                keywords.append(keyword)
+        return parsed, categories, keywords, place_category
     
     def _create_chain(self):
         prompt = ChatPromptTemplate.from_template("""
@@ -149,7 +175,7 @@ class ClovaXKeywordExtractor:
 
     async def extract(self, user_input: str) -> dict:
         response = await self.chain.ainvoke({"user_input": user_input})
-        return response
+        return self.parse_response(response)
 
     def _parse_response(self, text: str) -> dict:
         # 기존 KeywordExtractor의 _parse_response 복사
