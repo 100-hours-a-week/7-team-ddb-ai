@@ -24,7 +24,7 @@ router = APIRouter()
 )
 async def get_recommendation(
     text: str = Query(..., description="추천을 위한 키워드나 문장"),
-    recommender: RecommenderService = Depends(get_recommender),
+    recommender: RecommenderService = Depends(get_clovax_recommender),
     metrics = Depends(get_recommend_metrics)  # 메트릭 객체를 의존성 주입으로 받음
 ) -> RecommendResponse:
     """
